@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>예산 사용 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  @font-face {
+    font-family:'GyeonggiBatang';
+    src:url('https://cdn.jsdelivr.net/npm/@noonnu/gyeonggi-batang@0.1.0/fonts/gyeonggibatang-normal.woff') format('woff');
+    font-weight:normal; font-style:normal; font-display:swap;
+  }
+  :root {
+    --bg:#F3F5F9; --card:#FFFFFF; --line:#DCE1EB; --line2:#E8EBF2; --text:#141B2D; --muted:#5B6478;
+    --accent:#22336B; --accent-2:#3B55A8; --accent-soft:#E7ECF8; --on-accent:#FFFFFF;
+    --bad:#C2362B; --bad-soft:#FBE8E6; --warn:#B26B00; --warn-soft:#FCF1DE;
+    --input:#FAFBFD; --track:#E3E7F0; --folder:#DDE4F5; --paid:#8EA2DA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0E121C; --card:#161C2A; --line:#283146; --line2:#222A3C; --text:#E6EAF3; --muted:#97A1B8;
+      --accent:#9DB2F2; --accent-2:#7F98E6; --accent-soft:#1E2944; --on-accent:#0E121C;
+      --bad:#F08A7E; --bad-soft:#3A1F1D; --warn:#E9AE55; --warn-soft:#3A2D17;
+      --input:#1A2133; --track:#283146; --folder:#24304D; --paid:#4A5E99;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0E121C; --card:#161C2A; --line:#283146; --line2:#222A3C; --text:#E6EAF3; --muted:#97A1B8;
+    --accent:#9DB2F2; --accent-2:#7F98E6; --accent-soft:#1E2944; --on-accent:#0E121C;
+    --bad:#F08A7E; --bad-soft:#3A1F1D; --warn:#E9AE55; --warn-soft:#3A2D17;
+    --input:#1A2133; --track:#283146; --folder:#24304D; --paid:#4A5E99;
+  }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { font-family:'GyeonggiBatang',"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,serif; font-size:15px; line-height:1.6; color:var(--text); background:var(--bg); margin:0; }
+  button, input, select { font-family:inherit; }
+  .wrap { max-width:1120px; margin:0 auto; padding:20px 16px 56px; display:flex; flex-direction:column; gap:16px; }
+  .stack { display:flex; flex-direction:column; gap:16px; min-width:0; }
+  h1 { font-size:22px; margin:0; font-weight:normal; letter-spacing:-.2px; }
+  h2 { font-size:17px; margin:0; font-weight:normal; }
+  h3 { font-size:15px; margin:0; font-weight:normal; }
+  p { margin:0; }
+  b, strong, th { font-weight:normal; }
+  .muted { color:var(--muted); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .between { justify-content:space-between; }
+  button { font-size:14px; padding:8px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); cursor:pointer; color:var(--text); }
+  button:hover { border-color:var(--accent-2); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.x { border:0; background:transparent; color:var(--muted); padding:2px 6px; font-size:13px; }
+  button.x:hover { color:var(--accent-2); } button.x.del:hover { color:var(--bad); }
+  .banner { background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:8px 12px; font-size:13px; }
+  .note { background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:10px 12px; font-size:13px; }
+
+  .top { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand .logo { width:34px; height:34px; border-radius:10px; background:var(--accent); color:var(--on-accent); display:grid; place-items:center; font-size:17px; }
+  .seg { display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px; gap:2px; max-width:100%; overflow-x:auto; }
+  .seg button { border:0; border-radius:999px; padding:5px 14px; background:transparent; color:var(--muted); white-space:nowrap; }
+  .seg button.on { background:var(--accent); color:var(--on-accent); }
+  .crumb { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--muted); flex-wrap:wrap; }
+  .crumb button { border:0; background:transparent; padding:2px 4px; color:var(--accent-2); }
+  .crumb .cur { color:var(--text); font-size:20px; }
+
+  .folders { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:24px 16px; padding-top:10px; }
+  .folder { position:relative; text-align:left; background:var(--card); border:1px solid var(--line); border-radius:4px 14px 14px 14px; padding:18px; display:flex; flex-direction:column; gap:10px; cursor:pointer; color:var(--text); transition:transform .12s, box-shadow .12s, border-color .12s; }
+  .folder::before { content:""; position:absolute; left:-1px; top:-11px; width:42%; height:12px; background:var(--folder); border:1px solid var(--line); border-bottom:0; border-radius:8px 12px 0 0; }
+  .folder::after { content:""; position:absolute; left:0; right:0; top:0; height:5px; background:var(--folder); border-radius:0 13px 0 0; }
+  .folder:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(20,27,45,.08); border-color:var(--accent-2); }
+  .folder .name { display:flex; align-items:center; gap:8px; font-size:18px; }
+  .folder .name svg { flex:none; color:var(--accent-2); }
+  .folder .units { font-size:12px; color:var(--muted); line-height:1.5; }
+  .folder .big { font-size:22px; color:var(--accent); font-variant-numeric:tabular-nums; }
+  .folder .big.neg { color:var(--bad); }
+  .folder .meta { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; gap:8px; }
+  .folder.add { align-items:center; justify-content:center; color:var(--muted); border-style:dashed; min-height:160px; background:transparent; }
+  .folder.add::before, .folder.add::after { display:none; }
+  .folder.add span { font-size:30px; line-height:1; }
+  .folder.warn { border-color:var(--warn); }
+  .folder.warn::before, .folder.warn::after { background:var(--warn-soft); }
+  .folder.warn .name svg { color:var(--warn); }
+
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); overflow-x:auto; }
+  .tabs button { border:0; border-bottom:3px solid transparent; border-radius:0; background:transparent; color:var(--muted); padding:8px 12px; white-space:nowrap; }
+  .tabs button.on { color:var(--accent); border-bottom-color:var(--accent); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; min-width:0; }
+  .kpi span { font-size:13px; color:var(--muted); }
+  .kpi b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+  .kpi small { display:block; font-size:12px; color:var(--muted); }
+  .kpi.hero { background:var(--accent); border-color:var(--accent); }
+  .kpi.hero span, .kpi.hero b, .kpi.hero small { color:var(--on-accent); }
+  .kpi.hero.neg { background:var(--bad); border-color:var(--bad); }
+  .bar { height:10px; background:var(--track); border-radius:999px; overflow:hidden; position:relative; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--accent-2); border-radius:999px; }
+  .bar i.paid { background:var(--paid); }
+  .bar.warn i:not(.paid) { background:var(--warn); } .bar.over i:not(.paid) { background:var(--bad); }
+  .bar.sm { height:7px; }
+  .legend { display:flex; gap:12px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+  .tbl { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; font-variant-numeric:tabular-nums; }
+  th, td { border-bottom:1px solid var(--line2); padding:8px 10px; text-align:left; white-space:nowrap; }
+  th { background:var(--bg); color:var(--muted); font-size:13px; }
+  td.n, th.n { text-align:right; }
+  tr:last-child td { border-bottom:0; }
+  tfoot td { background:var(--bg); }
+  tr.click { cursor:pointer; } tr.click:hover td { background:var(--accent-soft); }
+  td.memo { white-space:normal; min-width:200px; max-width:340px; }
+  td .sub { display:block; font-size:12px; color:var(--muted); }
+  .neg { color:var(--bad); }
+  .tag { display:inline-block; font-size:12px; padding:0 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent); }
+  .tag.m { background:var(--warn-soft); color:var(--warn); }
+  .unit-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .months { display:grid; grid-template-columns:repeat(12,1fr); gap:6px; align-items:end; height:130px; padding-top:8px; }
+  .months .m { display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; min-width:0; }
+  .months .m i { display:block; width:100%; max-width:30px; background:var(--accent-2); border-radius:5px 5px 2px 2px; min-height:2px; }
+  .months .m i.zero { background:var(--track); }
+  .months .m span { font-size:11px; color:var(--muted); }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  label.f { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); min-width:0; }
+  .t { font-size:15px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:var(--input); color:var(--text); min-width:0; width:100%; }
+  .t:focus { outline:2px solid var(--accent-2); outline-offset:-1px; }
+  select.t { background:var(--card); }
+  .amount { text-align:right; font-variant-numeric:tabular-nums; }
+  .msg { font-size:13px; } .msg.ok { color:var(--accent-2); } .msg.err { color:var(--bad); }
+  .empty { text-align:center; color:var(--muted); padding:22px 8px; }
+  .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:4px; padding:3px 4px 3px 12px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:13px; }
+  .chip button { border:0; background:transparent; color:inherit; padding:0 6px; font-size:15px; line-height:1; }
+  .dialog { position:fixed; inset:0; background:rgba(14,18,28,.45); display:grid; place-items:center; padding:16px; z-index:10; overflow:auto; }
+  .dialog > .card { width:100%; max-width:560px; max-height:calc(100vh - 32px); overflow:auto; }
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:22px 14px; text-align:center; display:flex; flex-direction:column; gap:6px; align-items:center; cursor:pointer; }
+  .drop.over { border-color:var(--accent-2); background:var(--accent-soft); }
+  @media (max-width:560px) {
+    .kpis { grid-template-columns:1fr 1fr; }
+    .kpi { padding:11px 12px; } .kpi b { font-size:17px; }
+    .folders { grid-template-columns:1fr; }
+    .months { gap:3px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="login" hidden>
+  <div class="card" style="max-width:420px;width:100%;margin:40px auto 0">
+    <h1>예산 사용 관리</h1>
+    <p class="muted">비밀번호를 넣어 주세요. 이 기기에서는 다음부터 바로 열립니다.</p>
+    <form id="loginForm" class="row">
+      <input class="t" id="pw" type="password" autocomplete="current-password" aria-label="비밀번호" style="flex:1;min-width:160px">
+      <button class="primary" type="submit">들어가기</button>
+    </form>
+    <p id="loginMsg" class="msg err"></p>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div id="previewBanner" class="banner" hidden>미리보기입니다. 모든 내용은 가상의 커피숍 예시이며, 입력하거나 엑셀을 올려도 저장되지 않습니다.</div>
+  <div class="top">
+    <div class="brand"><div class="logo">₩</div><div><h1>예산 사용 관리</h1><p class="muted" id="asof"></p></div></div>
+    <div class="row">
+      <div class="seg" id="yearSeg" aria-label="연도"></div>
+      <button class="primary" data-import>이호조 엑셀 올리기</button>
+      <button id="reloadBtn">새로고침</button>
+    </div>
+  </div>
+
+  <!-- 첫 화면: 팀 폴더 -->
+  <section id="home" class="stack">
+    <div class="row between"><h2 id="homeTitle">팀 폴더</h2><p class="muted">폴더를 누르면 그 팀의 단위사업·세부사업 예산으로 들어갑니다.</p></div>
+    <div class="folders" id="folders"></div>
+  </section>
+
+  <!-- 팀 화면 -->
+  <section id="team" class="stack" hidden>
+    <div class="row between">
+      <div class="crumb"><button id="backBtn">← 전체 팀</button><span>/</span><span class="cur" id="teamName"></span></div>
+      <button id="xlsxBtn">엑셀로 받기</button>
+    </div>
+    <div class="tabs">
+      <button data-tab="biz" class="on">사업별 현황</button>
+      <button data-tab="list">집행내역</button>
+      <button data-tab="entry">직접 입력</button>
+      <button data-tab="setup">예산·사업 설정</button>
+    </div>
+
+    <section id="tab-biz" class="stack">
+      <div class="kpis">
+        <div class="kpi"><span id="kBudgetLabel">예산</span><b id="kBudget">-</b></div>
+        <div class="kpi"><span>집행액</span><b id="kUsed">-</b><small id="kUsedRate"></small></div>
+        <div class="kpi"><span>지출액</span><b id="kPaid">-</b><small>실제로 지출(결의)된 금액</small></div>
+        <div class="kpi hero" id="kLeftBox"><span>남은 예산</span><b id="kLeft">-</b></div>
+      </div>
+      <p class="banner" id="bizWarn" hidden></p>
+      <div id="unitCards" class="stack"></div>
+      <div class="card">
+        <div class="row between"><h2>월별 집행</h2><span class="muted" id="monthNote"></span></div>
+        <div class="months" id="months"></div>
+      </div>
+    </section>
+
+    <section id="tab-list" hidden>
+      <div class="card">
+        <div class="filters">
+          <label class="f">단위사업<select class="t" id="qUnit"></select></label>
+          <label class="f">세부사업<select class="t" id="qSub"></select></label>
+          <label class="f">담당자<select class="t" id="qPerson"></select></label>
+          <label class="f">월<select class="t" id="qMonth"></select></label>
+          <label class="f">검색<input class="t" id="qText" placeholder="적요·거래처·품의번호"></label>
+        </div>
+        <p class="muted" id="listSum"></p>
+        <div class="tbl"><table>
+          <thead><tr><th>일시</th><th>시간</th><th>팀</th><th>세부사업</th><th>담당자</th><th>거래처</th><th>적요</th><th class="n">금액</th><th class="n">지출액</th><th class="n">남은금액</th><th>상태</th><th></th></tr></thead>
+          <tbody id="listBody"></tbody><tfoot id="listFoot"></tfoot>
+        </table></div>
+        <p class="muted">금액은 계약(원인행위) 금액이고, 계약 전이면 품의금액입니다. 남은금액은 그 세부사업의 그 연도 예산에서 그 건까지의 금액을 뺀 값입니다. 이호조에서 올린 내역은 이호조 엑셀을 다시 올리면 바뀐 내용으로 갱신됩니다.</p>
+      </div>
+    </section>
+
+    <section id="tab-entry" hidden>
+      <form class="card" id="entryForm" autocomplete="off">
+        <div class="row between"><h2 id="entryTitle">직접 입력</h2><button type="button" class="x" id="cancelEdit" hidden>수정 취소</button></div>
+        <p class="muted">이호조에 아직 올라가지 않은 사용 계획이나 카드 사용 등을 적어 둘 때 씁니다.</p>
+        <div class="fields">
+          <label class="f">단위사업<select class="t" id="fUnit"></select></label>
+          <label class="f">세부사업<select class="t" id="fSub"></select><input class="t" id="fSubNew" placeholder="새 세부사업 이름" hidden></label>
+          <label class="f">담당자<input class="t" id="fPerson" list="personList" placeholder="이름"></label>
+          <label class="f">일시<input class="t" id="fDate" type="date"></label>
+          <label class="f">시간<input class="t" id="fTime" type="time"></label>
+          <label class="f">거래처<input class="t" id="fVendor" list="vendorList" placeholder="예: ○○문구"></label>
+          <label class="f">금액 (원)<input class="t amount" id="fAmount" inputmode="numeric" placeholder="0" style="font-size:18px"></label>
+          <label class="f">통계목 (선택)<input class="t" id="fItem" list="itemList" placeholder="예: 201-01-사무관리비"></label>
+        </div>
+        <label class="f">적요<input class="t" id="fMemo" placeholder="사용 내용"></label>
+        <div class="row between">
+          <p class="muted" id="afterLeft"></p>
+          <button class="primary" type="submit" id="saveBtn">저장</button>
+        </div>
+        <p class="msg" id="entryMsg"></p>
+        <datalist id="personList"></datalist><datalist id="vendorList"></datalist><datalist id="itemList"></datalist>
+      </form>
+    </section>
+
+    <section id="tab-setup" class="stack" hidden>
+      <div class="card">
+        <h2>이 팀의 단위사업</h2>
+        <div class="chips" id="unitChips"></div>
+        <div class="row">
+          <select class="t" id="unitAddSel" style="max-width:360px"></select>
+          <button id="unitAddBtn">추가</button>
+        </div>
+        <p class="msg" id="unitMsg"></p>
+      </div>
+      <div class="card">
+        <div class="row between"><h2 id="budgetTitle">세부사업 예산</h2><span class="muted">위쪽에서 연도를 바꾸면 그 연도 예산을 넣습니다.</span></div>
+        <div class="tbl"><table>
+          <thead><tr><th>단위사업</th><th>세부사업</th><th class="n">예산 (원)</th><th class="n">집행액</th></tr></thead>
+          <tbody id="bBody"></tbody>
+        </table></div>
+        <div class="row between">
+          <button type="button" id="bCopy">작년 예산 불러오기</button>
+          <button class="primary" id="bSave">예산 저장</button>
+        </div>
+        <p class="msg" id="bMsg"></p>
+      </div>
+    </section>
+  </section>
+</div>
+
+<!-- 새 팀 -->
+<div class="dialog" id="newTeam" hidden>
+  <form class="card" id="newTeamForm" autocomplete="off">
+    <h2>새 팀 폴더</h2>
+    <label class="f">팀 이름<input class="t" id="nName" placeholder="예: 매장운영팀"></label>
+    <p class="muted">만든 뒤 [예산·사업 설정]에서 이 팀의 단위사업을 고르면 됩니다.</p>
+    <p class="msg" id="nMsg"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" data-close>취소</button>
+      <button class="primary" type="submit">만들기</button>
+    </div>
+  </form>
+</div>
+
+<!-- 이호조 엑셀 올리기 -->
+<div class="dialog" id="importDlg" hidden>
+  <div class="card">
+    <h2>이호조 엑셀 올리기</h2>
+    <label class="drop" id="drop">
+      <b>지출집행현황 엑셀(.xlsx)을 여기에 끌어다 놓거나 눌러서 고르세요</b>
+      <span class="muted">이호조 [지출집행현황(품의)] 내려받기 파일 그대로 올리면 됩니다.</span>
+      <input type="file" id="impFile" accept=".xlsx,.xls" hidden>
+    </label>
+    <div id="impPreview" class="stack" hidden></div>
+    <p class="msg" id="impMsg"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" data-close>닫기</button>
+      <button class="primary" id="impGo" disabled>올리기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 단위사업 → 팀 배정 -->
+<div class="dialog" id="assignDlg" hidden>
+  <div class="card">
+    <h2>단위사업을 팀 폴더에 넣기</h2>
+    <p class="muted">이호조 파일에는 팀 정보가 없어서, 단위사업마다 어느 팀 것인지 한 번만 골라 주세요. 나중에 [예산·사업 설정]에서 바꿀 수 있습니다.</p>
+    <div class="row">
+      <input class="t" id="aNewTeam" placeholder="새 팀 이름" style="flex:1;min-width:160px">
+      <button type="button" id="aAddTeam">팀 추가</button>
+    </div>
+    <div class="tbl"><table><thead><tr><th>단위사업</th><th>팀</th></tr></thead><tbody id="aBody"></tbody></table></div>
+    <p class="msg" id="aMsg"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" data-close>나중에</button>
+      <button class="primary" id="aSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LIVE = typeof google !== 'undefined' && google.script && google.script.run;
+  var KEY_STORE = 'budget_key';
+  var key = '';
+  var data = { teams: [], budgets: [], rows: [] };
+  var state = { team: '', year: new Date().getFullYear(), tab: 'biz' };
+  var editingId = null;
+  var pendingImport = null;
+  var extraTeams = [];
+
+  /* ---------- 서버 호출 (미리보기에서는 샘플 데이터) ---------- */
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    if (LIVE) {
+      return new Promise(function (ok, fail) {
+        var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { fail(e && e.message ? e : new Error(String(e))); });
+        r[fn].apply(r, args);
+      });
+    }
+    return new Promise(function (ok, fail) {
+      setTimeout(function () { try { ok(MOCK[fn].apply(null, args)); } catch (e) { fail(e); } }, 150);
+    });
+  }
+
+  var MOCK = (function () {
+    var db = window.MOCK_DATA ? JSON.parse(JSON.stringify(window.MOCK_DATA)) : { teams: [], budgets: [], rows: [] };
+    var seq = 1000;
+    function clone() { return JSON.parse(JSON.stringify(db)); }
+    function manual(x, id) {
+      if (!x.unit || !x.sub) throw new Error('단위사업과 세부사업을 골라 주세요.');
+      if (!x.person) throw new Error('담당자를 적어 주세요.');
+      if (!x.vendor) throw new Error('거래처를 적어 주세요.');
+      if (!x.amount) throw new Error('금액을 적어 주세요.');
+      return Object.assign({ id: id, src: '직접입력', year: +x.date.slice(0, 4), no: '', paid: 0, status: '직접입력' }, x);
+    }
+    return {
+      login: function () { return true; },
+      getData: clone,
+      addRow: function (k, x) { db.rows.push(manual(x, 'M' + (++seq))); return clone(); },
+      updateRow: function (k, id, x) { db.rows = db.rows.map(function (r) { return r.id === id ? manual(x, id) : r; }); return clone(); },
+      deleteRow: function (k, id) { db.rows = db.rows.filter(function (r) { return r.id !== id; }); return clone(); },
+      importEhojo: function (k, items) {
+        var at = {}, a = 0, u = 0; db.rows.forEach(function (r, i) { at[r.id] = i; });
+        items.forEach(function (x) { var r = Object.assign({ src: '이호조', time: '' }, x); if (x.id in at) { db.rows[at[x.id]] = r; u++; } else { db.rows.push(r); a++; } });
+        var d = clone(); d.result = { added: a, updated: u }; return d;
+      },
+      assignUnits: function (k, map) {
+        var units = Object.keys(map);
+        var keep = db.teams.filter(function (t) { return units.indexOf(t.unit) < 0 && t.unit; });
+        units.forEach(function (u) { if (map[u]) keep.push({ team: map[u], unit: u }); });
+        db.teams.forEach(function (t) { if (!keep.some(function (x) { return x.team === t.team; })) keep.push({ team: t.team, unit: '' }); });
+        db.teams = keep; return clone();
+      },
+      addTeam: function (k, t) {
+        if (!t) throw new Error('팀 이름을 적어 주세요.');
+        if (db.teams.some(function (x) { return x.team === t; })) throw new Error('이미 있는 팀입니다.');
+        db.teams.push({ team: t, unit: '' }); return clone();
+      },
+      saveBudgets: function (k, year, list) {
+        var touched = {}; list.forEach(function (b) { touched[b.unit + '|' + b.sub] = b; });
+        db.budgets = db.budgets.filter(function (b) { return b.year !== +year || !touched[b.unit + '|' + b.sub]; });
+        Object.keys(touched).forEach(function (kk) { var b = touched[kk]; if (String(b.budget).trim() !== '') db.budgets.push({ year: +year, unit: b.unit, sub: b.sub, budget: num(b.budget) }); });
+        return clone();
+      }
+    };
+  })();
+
+  /* ---------- 도움 함수 ---------- */
+  function num(v) { var n = Number(String(v == null ? '' : v).replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; }
+  function won(n) { return (n < 0 ? '-' : '') + Math.abs(Math.round(n)).toLocaleString('ko-KR') + '원'; }
+  function man(n) { // 큰 금액을 짧게: 1억 2,345만원
+    var a = Math.abs(Math.round(n)), s = n < 0 ? '-' : '';
+    if (a >= 1e8) { var e = Math.floor(a / 1e8), m = Math.round((a % 1e8) / 1e4); return s + e + '억' + (m ? ' ' + m.toLocaleString('ko-KR') + '만' : '') + '원'; }
+    if (a >= 1e4) return s + Math.round(a / 1e4).toLocaleString('ko-KR') + '만원';
+    return won(n);
+  }
+  function comma(n) { return n || n === 0 ? Math.round(n).toLocaleString('ko-KR') : ''; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function pad(n) { return ('0' + n).slice(-2); }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function nowTime() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+  function uniq(a) { return a.filter(function (x, i) { return x && a.indexOf(x) === i; }); }
+  function sum(rs, f) { f = f || 'amount'; return rs.reduce(function (s, r) { return s + (r[f] || 0); }, 0); }
+  function pct(a, b) { return b ? a / b * 100 : 0; }
+  function barCls(p) { return p > 100 ? 'over' : p >= 90 ? 'warn' : ''; }
+  function bar(used, paid, budget, sm) {
+    var p = pct(used, budget), q = pct(paid, budget);
+    return '<div class="bar ' + (sm ? 'sm ' : '') + barCls(p) + '"><i style="width:' + Math.min(100, p).toFixed(1) + '%"></i><i class="paid" style="width:' + Math.min(100, q).toFixed(1) + '%"></i></div>';
+  }
+  var FOLDER_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
+
+  /* ---------- 데이터 모양 ---------- */
+  function teamNames() { return uniq(data.teams.map(function (t) { return t.team; }).concat(extraTeams)); }
+  function unitsOf(team) { return uniq(data.teams.filter(function (t) { return t.team === team; }).map(function (t) { return t.unit; })); }
+  function teamOfUnit(u) { var t = data.teams.filter(function (x) { return x.unit === u; })[0]; return t ? t.team : ''; }
+  function allUnits() { return uniq(data.budgets.map(function (b) { return b.unit; }).concat(data.rows.map(function (r) { return r.unit; }), data.teams.map(function (t) { return t.unit; }))); }
+  function unassigned() { return allUnits().filter(function (u) { return !teamOfUnit(u); }); }
+  function subsOf(unit) { return uniq(data.budgets.filter(function (b) { return b.unit === unit; }).map(function (b) { return b.sub; }).concat(data.rows.filter(function (r) { return r.unit === unit; }).map(function (r) { return r.sub; }))); }
+  function years() {
+    var ys = data.budgets.map(function (b) { return +b.year; }).concat(data.rows.map(function (r) { return +r.year; }), [new Date().getFullYear()]);
+    return uniq(ys).filter(function (y) { return y > 1999; }).sort();
+  }
+  function budgetOf(unit, sub, year) { return sum(data.budgets.filter(function (b) { return b.unit === unit && b.sub === sub && +b.year === +year; }), 'budget'); }
+  function hasBudget(unit, sub, year) { return data.budgets.some(function (b) { return b.unit === unit && b.sub === sub && +b.year === +year; }); }
+  function unitBudget(unit, year) { return sum(data.budgets.filter(function (b) { return b.unit === unit && +b.year === +year; }), 'budget'); }
+
+  /** 남은금액을 붙인 내역 (세부사업·연도마다 일시 순 누적) */
+  var withLeftCache = null;
+  function withLeft() {
+    if (withLeftCache) return withLeftCache;
+    var left = {};
+    withLeftCache = data.rows.map(function (r, i) { return Object.assign({ idx: i, team: teamOfUnit(r.unit) }, r); })
+      .sort(function (a, b) { var ka = a.date + ' ' + (a.time || ''), kb = b.date + ' ' + (b.time || ''); return ka < kb ? -1 : ka > kb ? 1 : a.idx - b.idx; })
+      .map(function (r) {
+        var k = r.year + '|' + r.unit + '|' + r.sub;
+        if (!(k in left)) left[k] = budgetOf(r.unit, r.sub, r.year);
+        left[k] -= r.amount; r.left = left[k]; r.hasBudget = hasBudget(r.unit, r.sub, r.year);
+        return r;
+      });
+    return withLeftCache;
+  }
+  function teamRows(team, year) { var us = unitsOf(team); return withLeft().filter(function (r) { return us.indexOf(r.unit) >= 0 && +r.year === +year; }); }
+
+  /* ---------- 그리기 ---------- */
+  function render() {
+    withLeftCache = null;
+    var ys = years();
+    if (ys.indexOf(+state.year) < 0) state.year = ys[ys.length - 1];
+    $('yearSeg').innerHTML = ys.map(function (y) { return '<button data-year="' + y + '" class="' + (y === +state.year ? 'on' : '') + '">' + y + '년</button>'; }).join('');
+    var d = new Date();
+    $('asof').textContent = d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '. ' + nowTime() + ' 기준';
+    if (state.team && teamNames().indexOf(state.team) < 0) state.team = '';
+    $('home').hidden = !!state.team;
+    $('team').hidden = !state.team;
+    if (state.team) renderTeam(); else renderHome();
+  }
+
+  function renderHome() {
+    var y = +state.year;
+    $('homeTitle').textContent = y + '년 팀 폴더';
+    var html = teamNames().map(function (t) {
+      var us = unitsOf(t), rs = teamRows(t, y), u = sum(rs), pd = sum(rs, 'paid');
+      var b = us.reduce(function (s, x) { return s + unitBudget(x, y); }, 0);
+      return '<button class="folder" data-team="' + esc(t) + '">' +
+        '<div class="name">' + FOLDER_SVG + '<span>' + esc(t) + '</span></div>' +
+        '<div class="units">' + (us.length ? us.map(esc).join(' · ') : '단위사업 없음') + '</div>' +
+        (b ? '<div><p class="muted">남은 예산</p><div class="big' + (b - u < 0 ? ' neg' : '') + '">' + man(b - u) + '</div></div>' + bar(u, pd, b, true) +
+          '<div class="meta"><span>예산 ' + man(b) + '</span><span>집행 ' + pct(u, b).toFixed(1) + '%</span></div>'
+          : '<div><p class="muted">' + y + '년 예산 미설정</p><div class="big" style="color:var(--muted)">집행 ' + man(u) + '</div></div>') +
+        '<div class="meta"><span>' + rs.length + '건</span><span>' + (rs.length ? '최근 ' + rs[rs.length - 1].date.slice(5).replace('-', '.') : '') + '</span></div>' +
+        '</button>';
+    }).join('');
+    var un = unassigned();
+    if (un.length) {
+      var ur = withLeft().filter(function (r) { return un.indexOf(r.unit) >= 0 && +r.year === y; });
+      html += '<button class="folder warn" data-assign><div class="name">' + FOLDER_SVG + '<span>팀 미지정</span></div>' +
+        '<div class="units">' + un.map(esc).join(' · ') + '</div>' +
+        '<div><p class="muted">어느 팀 단위사업인지 골라 주세요</p><div class="big" style="color:var(--warn)">' + un.length + '개 단위사업</div></div>' +
+        '<div class="meta"><span>' + ur.length + '건 · ' + man(sum(ur)) + '</span><span>눌러서 배정</span></div></button>';
+    }
+    if (!teamNames().length && !un.length) html += '<div class="card" style="grid-column:1/-1"><h2>처음 시작하기</h2><p class="muted">위쪽 [이호조 엑셀 올리기]로 지출집행현황 파일을 올리면 단위사업·세부사업과 집행 내역이 채워집니다. 그다음 단위사업마다 팀을 고르면 팀 폴더가 생깁니다.</p></div>';
+    $('folders').innerHTML = html + '<button class="folder add" id="addTeam"><span>+</span>새 팀 폴더</button>';
+  }
+
+  function renderTeam() {
+    var t = state.team, y = +state.year, us = unitsOf(t);
+    $('teamName').textContent = t;
+    var rows = teamRows(t, y);
+    var used = sum(rows), paid = sum(rows, 'paid');
+    var total = us.reduce(function (s, u) { return s + unitBudget(u, y); }, 0), left = total - used;
+    $('kBudgetLabel').textContent = y + '년 예산';
+    $('kBudget').textContent = total ? won(total) : '미설정';
+    $('kUsed').textContent = won(used);
+    $('kUsedRate').textContent = total ? '집행률 ' + pct(used, total).toFixed(1) + '%' : '';
+    $('kPaid').textContent = won(paid);
+    $('kLeft').textContent = total ? won(left) : '-';
+    $('kLeftBox').className = 'kpi hero' + (total && left < 0 ? ' neg' : '');
+    var missing = [];
+    us.forEach(function (u) { subsOf(u).forEach(function (s) { if (!hasBudget(u, s, y) && rows.some(function (r) { return r.unit === u && r.sub === s; })) missing.push(s); }); });
+    $('bizWarn').hidden = !(missing.length || !us.length);
+    $('bizWarn').textContent = !us.length ? '이 팀에 단위사업이 없습니다. [예산·사업 설정]에서 단위사업을 추가해 주세요.'
+      : '예산이 없는 세부사업이 ' + missing.length + '개 있습니다 (' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? ' 등' : '') + '). [예산·사업 설정]에서 ' + y + '년 예산을 넣어 주세요.';
+
+    // 단위사업 카드
+    $('unitCards').innerHTML = us.map(function (u) {
+      var subs = subsOf(u), ur = rows.filter(function (r) { return r.unit === u; });
+      var ub = unitBudget(u, y), uu = sum(ur), up = sum(ur, 'paid');
+      var trs = subs.map(function (s) {
+        var sr = ur.filter(function (r) { return r.sub === s; }), b = budgetOf(u, s, y), has = hasBudget(u, s, y), su = sum(sr), sp = sum(sr, 'paid');
+        if (!has && !sr.length) return '';
+        return '<tr class="click" data-sub="' + esc(s) + '" data-unit="' + esc(u) + '"><td>' + esc(s) + '</td><td class="n">' + (has ? won(b) : '<span class="muted">미설정</span>') + '</td><td class="n">' + won(su) + '</td><td class="n">' + won(sp) +
+          '</td><td class="n' + (has && b - su < 0 ? ' neg' : '') + '">' + (has ? won(b - su) : '-') + '</td><td style="min-width:130px">' + (has && b ? '<div class="row" style="flex-wrap:nowrap;gap:6px"><div style="flex:1">' + bar(su, sp, b, true) + '</div><span style="min-width:46px;text-align:right">' + pct(su, b).toFixed(1) + '%</span></div>' : '') + '</td><td class="n">' + sr.length + '</td></tr>';
+      }).join('');
+      return '<div class="card"><div class="unit-head"><h2>' + esc(u) + '</h2><span class="muted">예산 ' + won(ub) + ' · 집행 ' + won(uu) + ' · 남은 ' + won(ub - uu) + '</span></div>' +
+        '<div class="tbl"><table><thead><tr><th>세부사업</th><th class="n">예산</th><th class="n">집행액</th><th class="n">지출액</th><th class="n">남은 예산</th><th>집행률</th><th class="n">건수</th></tr></thead><tbody>' +
+        (trs || '<tr><td colspan="7" class="empty">' + y + '년 예산·집행이 없습니다.</td></tr>') + '</tbody></table></div></div>';
+    }).join('') + (us.length ? '<div class="legend"><span><i style="background:var(--accent-2)"></i>집행액(계약·품의)</span><span><i style="background:var(--paid)"></i>지출액(결의)</span><span>세부사업을 누르면 그 집행내역으로 갑니다.</span></div>' : '');
+
+    // 월별
+    var ms = []; for (var m = 1; m <= 12; m++) ms.push(sum(rows.filter(function (r) { return +r.date.slice(5, 7) === m; })));
+    var mx = Math.max.apply(null, ms.map(Math.abs)) || 1;
+    $('months').innerHTML = ms.map(function (v, i) {
+      return '<div class="m" title="' + (i + 1) + '월 ' + won(v) + '"><i class="' + (v > 0 ? '' : 'zero') + '" style="height:' + (v > 0 ? Math.max(4, v / mx * 100) : 2) + '%"></i><span>' + (i + 1) + '월</span></div>';
+    }).join('');
+    var best = ms.indexOf(Math.max.apply(null, ms));
+    $('monthNote').textContent = used ? '가장 많이 집행한 달: ' + (best + 1) + '월 ' + man(ms[best]) : '';
+
+    // 필터·입력 목록
+    setOptions($('qUnit'), us, '전체 단위사업');
+    fillSubFilter();
+    setOptions($('qPerson'), uniq(rows.map(function (r) { return r.person; })).sort(), '전체 담당자');
+    setOptions($('qMonth'), uniq(rows.map(function (r) { return r.date.slice(0, 7); })).sort().reverse(), y + '년 전체', function (m) { return +m.slice(5) + '월'; });
+    var all = data.rows.filter(function (r) { return us.indexOf(r.unit) >= 0; });
+    $('personList').innerHTML = uniq(all.map(function (r) { return r.person; })).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
+    $('vendorList').innerHTML = uniq(all.map(function (r) { return r.vendor; })).slice(0, 200).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
+    $('itemList').innerHTML = uniq(all.map(function (r) { return r.item; })).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
+    var ku = $('fUnit').value;
+    setOptions($('fUnit'), us);
+    if (us.indexOf(ku) >= 0) $('fUnit').value = ku;
+    fillEntrySubs();
+    renderList();
+    renderSetup();
+    updateAfterLeft();
+  }
+
+  function setOptions(sel, items, allLabel, label) {
+    var cur = sel.value;
+    sel.innerHTML = (allLabel ? '<option value="">' + esc(allLabel) + '</option>' : '') + items.map(function (x) { return '<option value="' + esc(x) + '">' + esc(label ? label(x) : x) + '</option>'; }).join('');
+    if ([].some.call(sel.options, function (o) { return o.value === cur; })) sel.value = cur;
+  }
+  function fillSubFilter() {
+    var u = $('qUnit').value, us = u ? [u] : unitsOf(state.team);
+    setOptions($('qSub'), uniq([].concat.apply([], us.map(subsOf))), '전체 세부사업');
+  }
+  function fillEntrySubs() {
+    var keep = $('fSub').value;
+    setOptions($('fSub'), subsOf($('fUnit').value).concat(['__new']), null, function (s) { return s === '__new' ? '+ 새 세부사업 직접 입력' : s; });
+    if (keep && [].some.call($('fSub').options, function (o) { return o.value === keep; })) $('fSub').value = keep;
+    $('fSubNew').hidden = $('fSub').value !== '__new';
+  }
+
+  function filtered() {
+    var u = $('qUnit').value, s = $('qSub').value, p = $('qPerson').value, m = $('qMonth').value, q = $('qText').value.trim().toLowerCase();
+    return teamRows(state.team, state.year).filter(function (r) {
+      return (!u || r.unit === u) && (!s || r.sub === s) && (!p || r.person === p) && (!m || r.date.slice(0, 7) === m) &&
+        (!q || (r.memo + ' ' + r.vendor + ' ' + r.no + ' ' + r.item).toLowerCase().indexOf(q) >= 0);
+    });
+  }
+
+  function renderList() {
+    var rs = filtered();
+    $('listBody').innerHTML = rs.slice().reverse().slice(0, 500).map(function (r) {
+      var manual = r.src !== '이호조';
+      return '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.time || '') + '</td><td>' + esc(r.team) + '</td><td>' + esc(r.sub) + '<span class="sub">' + esc(r.unit) + '</span></td><td>' + esc(r.person) + '</td><td>' + esc(r.vendor) +
+        '</td><td class="memo">' + esc(r.memo) + '<span class="sub">' + esc([r.item, r.no ? '품의 ' + r.no : ''].filter(Boolean).join(' · ')) + '</span></td><td class="n">' + won(r.amount) + '</td><td class="n">' + (r.paid ? won(r.paid) : '<span class="muted">-</span>') +
+        '</td><td class="n' + (r.hasBudget && r.left < 0 ? ' neg' : '') + '">' + (r.hasBudget ? won(r.left) : '<span class="muted">예산 없음</span>') + '</td><td><span class="tag' + (manual ? ' m' : '') + '">' + esc(r.status || r.src) + '</span></td><td>' +
+        (manual ? '<button class="x" data-edit="' + esc(r.id) + '">수정</button><button class="x del" data-del="' + esc(r.id) + '">삭제</button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="12" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
+    $('listFoot').innerHTML = rs.length ? '<tr><td colspan="7">합계 ' + rs.length + '건' + (rs.length > 500 ? ' (최근 500건 표시)' : '') + '</td><td class="n">' + won(sum(rs)) + '</td><td class="n">' + won(sum(rs, 'paid')) + '</td><td colspan="3"></td></tr>' : '';
+    $('listSum').textContent = state.year + '년 · ' + rs.length + '건 · 집행 ' + won(sum(rs)) + ' · 지출 ' + won(sum(rs, 'paid'));
+  }
+
+  function renderSetup() {
+    var t = state.team, y = +state.year, us = unitsOf(t);
+    $('unitChips').innerHTML = us.map(function (u) { return '<span class="chip">' + esc(u) + '<button data-unassign="' + esc(u) + '" title="이 팀에서 빼기">×</button></span>'; }).join('') || '<span class="muted">아직 단위사업이 없습니다.</span>';
+    var others = allUnits().filter(function (u) { return us.indexOf(u) < 0; });
+    setOptions($('unitAddSel'), others.concat(['__new']), null, function (u) { return u === '__new' ? '+ 새 단위사업 이름 적기' : u + (teamOfUnit(u) ? ' (' + teamOfUnit(u) + ')' : ' (팀 미지정)'); });
+    $('budgetTitle').textContent = y + '년 세부사업 예산';
+    if (document.activeElement && $('bBody').contains(document.activeElement)) return;
+    var html = '';
+    us.forEach(function (u) {
+      var subs = subsOf(u);
+      subs.forEach(function (s, i) {
+        var used = sum(withLeft().filter(function (r) { return r.unit === u && r.sub === s && +r.year === y; }));
+        html += '<tr data-unit="' + esc(u) + '" data-sub="' + esc(s) + '"><td>' + (i ? '' : esc(u)) + '</td><td>' + esc(s) + '</td><td><input class="t amount bb" inputmode="numeric" value="' + (hasBudget(u, s, y) ? comma(budgetOf(u, s, y)) : '') + '" placeholder="미설정" style="min-width:150px"></td><td class="n muted">' + won(used) + '</td></tr>';
+      });
+      html += '<tr data-unit="' + esc(u) + '" data-newsub><td>' + (subs.length ? '' : esc(u)) + '</td><td><input class="t ns" placeholder="+ 새 세부사업 이름" style="min-width:180px"></td><td><input class="t amount bb" inputmode="numeric" placeholder="예산" style="min-width:150px"></td><td></td></tr>';
+    });
+    $('bBody').innerHTML = html || '<tr><td colspan="4" class="empty">먼저 위에서 단위사업을 추가해 주세요.</td></tr>';
+  }
+
+  function updateAfterLeft() {
+    if (!state.team) return;
+    var u = $('fUnit').value, s = $('fSub').value === '__new' ? $('fSubNew').value.trim() : $('fSub').value;
+    var y = +($('fDate').value || today()).slice(0, 4), amt = num($('fAmount').value);
+    if (!u || !s) { $('afterLeft').textContent = ''; return; }
+    if (!hasBudget(u, s, y)) { $('afterLeft').textContent = s + ' ' + y + '년 예산이 아직 없습니다.'; return; }
+    var used = sum(data.rows.filter(function (r) { return r.unit === u && r.sub === s && +r.year === y && r.id !== editingId; }));
+    var left = budgetOf(u, s, y) - used;
+    $('afterLeft').textContent = s + ' 남은 예산 ' + won(left) + (amt ? ' → 저장 후 ' + won(left - amt) : '');
+  }
+
+  /* ---------- 이동 ---------- */
+  function openTeam(t) {
+    state.team = t; store('budget_team', t); resetEntry();
+    ['qUnit', 'qSub', 'qPerson', 'qMonth'].forEach(function (id) { $(id).value = ''; }); $('qText').value = '';
+    showTab('biz'); render(); window.scrollTo(0, 0);
+  }
+  function goHome() { state.team = ''; store('budget_team', null); render(); }
+  function showTab(name) {
+    state.tab = name;
+    [].forEach.call(document.querySelectorAll('.tabs button'), function (b) { b.classList.toggle('on', b.dataset.tab === name); });
+    ['biz', 'list', 'entry', 'setup'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
+    store('budget_tab', name);
+  }
+  $('backBtn').onclick = goHome;
+  $('yearSeg').onclick = function (e) { var b = e.target.closest('[data-year]'); if (!b) return; state.year = +b.dataset.year; store('budget_year', state.year); $('qMonth').value = ''; render(); };
+  $('folders').onclick = function (e) {
+    if (e.target.closest('#addTeam')) { $('nName').value = ''; $('nMsg').textContent = ''; $('newTeam').hidden = false; $('nName').focus(); return; }
+    if (e.target.closest('[data-assign]')) { openAssign(); return; }
+    var f = e.target.closest('[data-team]'); if (f) openTeam(f.dataset.team);
+  };
+  document.querySelector('.tabs').onclick = function (e) { var b = e.target.closest('button'); if (b) showTab(b.dataset.tab); };
+  $('unitCards').onclick = function (e) {
+    var tr = e.target.closest('tr[data-sub]'); if (!tr) return;
+    $('qUnit').value = tr.dataset.unit; fillSubFilter(); $('qSub').value = tr.dataset.sub;
+    $('qPerson').value = ''; $('qMonth').value = ''; $('qText').value = '';
+    renderList(); showTab('list'); window.scrollTo(0, 0);
+  };
+  document.addEventListener('click', function (e) {
+    var c = e.target.closest('[data-close]'); if (c) c.closest('.dialog').hidden = true;
+    if (e.target.classList && e.target.classList.contains('dialog')) e.target.hidden = true;
+    if (e.target.closest('[data-import]')) openImport();
+  });
+
+  /* ---------- 새 팀 ---------- */
+  $('newTeamForm').onsubmit = function (e) {
+    e.preventDefault();
+    var name = $('nName').value.trim();
+    $('nMsg').className = 'msg'; $('nMsg').textContent = '만드는 중…';
+    call('addTeam', key, name).then(function (d) { data = d; $('newTeam').hidden = true; openTeam(name); })
+      .catch(function (err) { $('nMsg').className = 'msg err'; $('nMsg').textContent = err.message; });
+  };
+
+  /* ---------- 이호조 엑셀 ---------- */
+  function openImport() { pendingImport = null; $('impFile').value = ''; $('impPreview').hidden = true; $('impGo').disabled = true; $('impMsg').textContent = ''; $('importDlg').hidden = false; }
+  var drop = $('drop');
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) readImport(e.dataTransfer.files[0]); });
+  $('impFile').onchange = function () { if (this.files[0]) readImport(this.files[0]); };
+
+  function readImport(file) {
+    if (typeof XLSX === 'undefined') { $('impMsg').className = 'msg err'; $('impMsg').textContent = '엑셀 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'; return; }
+    $('impMsg').className = 'msg'; $('impMsg').textContent = file.name + ' 읽는 중…';
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: false });
+        var aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+        pendingImport = parseEhojo(aoa);
+        showImportPreview(file.name);
+      } catch (err) { pendingImport = null; $('impPreview').hidden = true; $('impGo').disabled = true; $('impMsg').className = 'msg err'; $('impMsg').textContent = err.message; }
+    };
+    fr.readAsArrayBuffer(file);
+  }
+
+  /**
+   * 이호조 지출집행현황 → 품의 단위 목록.
+   * 한 품의에 결의·지급이 여러 줄로 나오므로(분할 지급 등) 품의번호·품의일자·세부사업·통계목으로 묶는다.
+   * 금액 = 원인행위 금액(원인번호별 1번씩), 원인행위 전이면 품의금액. 지출액 = 결의금액 합.
+   */
+  function parseEhojo(aoa) {
+    var hr = -1;
+    for (var i = 0; i < Math.min(aoa.length, 10); i++) { var r = aoa[i].map(String); if (r.indexOf('세부사업') >= 0 && r.indexOf('품의번호') >= 0) { hr = i; break; } }
+    if (hr < 0) throw new Error('이호조 지출집행현황 파일이 아닌 것 같습니다. 첫 줄에 단위사업·세부사업·품의번호 제목이 있어야 합니다.');
+    var h = aoa[hr].map(function (x) { return String(x).trim(); });
+    var ix = function (n) { return h.indexOf(n); };
+    var need = ['단위사업', '세부사업', '품의번호', '품의일자', '품의금액'];
+    need.forEach(function (n) { if (ix(n) < 0) throw new Error('[' + n + '] 열을 찾지 못했습니다.'); });
+    var vend = []; h.forEach(function (x, i) { if (x === '거래처명') vend.push(i); });
+    var vendOrder = vend.length >= 4 ? [vend[1], vend[2], vend[3], vend[0]] : vend;
+    var c = {
+      unit: ix('단위사업'), sub: ix('세부사업'), subCode: ix('세부사업코드'), item: ix('통계목') >= 0 ? ix('통계목') : ix('통계목명'), itemCode: ix('통계목코드'),
+      memo: ix('적요'), no: ix('품의번호'), date: ix('품의일자'), qAmt: ix('품의금액'), oNo: ix('원인번호'), oAmt: ix('원인금액'),
+      rAmt: ix('결의금액'), rState: ix('결의상태'), pDate: ix('지급일자'), person: ix('품의담당자')
+    };
+    var g = {}, order = [];
+    var v = function (row, k) { return c[k] >= 0 ? row[c[k]] : ''; };
+    for (var j = hr + 1; j < aoa.length; j++) {
+      var row = aoa[j];
+      if (!String(v(row, 'sub')).trim() || String(v(row, 'no')).trim() === '') continue;
+      var no = String(v(row, 'no')).replace(/\.0+$/, '').trim();
+      var date = ymd(v(row, 'date'));
+      var id = 'E' + date.slice(0, 4) + '-' + no + '-' + date.replace(/-/g, '') + '-' + (String(v(row, 'subCode')).trim() || v(row, 'sub')) + '-' + (String(v(row, 'itemCode')).trim() || v(row, 'item'));
+      var x = g[id];
+      if (!x) {
+        x = g[id] = { id: id, year: +date.slice(0, 4), unit: String(v(row, 'unit')).trim(), sub: String(v(row, 'sub')).trim(), item: String(v(row, 'item')).trim(),
+          no: no, date: date, person: String(v(row, 'person')).trim(), vendor: '', memo: String(v(row, 'memo')).trim(), q: num(v(row, 'qAmt')), o: {}, paid: 0, hasR: false, hasP: false };
+        order.push(id);
+      }
+      var on = String(v(row, 'oNo')).trim();
+      if (on && !(on in x.o)) x.o[on] = num(v(row, 'oAmt'));
+      if (String(v(row, 'rAmt')).trim() !== '' && String(v(row, 'rState')).trim() !== '') { x.paid += num(v(row, 'rAmt')); x.hasR = true; }
+      if (String(v(row, 'pDate')).trim()) x.hasP = true;
+      if (!x.vendor) for (var k = 0; k < vendOrder.length; k++) { var vv = String(row[vendOrder[k]] || '').trim(); if (vv) { x.vendor = vv; break; } }
+    }
+    var items = order.map(function (id) {
+      var x = g[id], os = Object.keys(x.o);
+      var amount = os.length ? os.reduce(function (s, k) { return s + x.o[k]; }, 0) : x.q;
+      var status = x.hasP ? '지급' : x.hasR ? '지출결의' : os.length ? '원인행위' : '품의';
+      return { id: x.id, year: x.year, unit: x.unit, sub: x.sub, item: x.item, no: x.no, date: x.date, person: x.person, vendor: x.vendor, memo: x.memo, amount: amount, paid: x.paid, status: status };
+    });
+    if (!items.length) throw new Error('읽을 수 있는 품의 내역이 없습니다.');
+    return { rows: aoa.length - hr - 1, items: items };
+  }
+  function ymd(v) {
+    if (typeof v === 'number' && v > 19000000) v = String(v);
+    if (typeof v === 'number') { var d = XLSX.SSF.parse_date_code(v); return d.y + '-' + pad(d.m) + '-' + pad(d.d); }
+    var s = String(v).trim().replace(/[./]/g, '-');
+    if (/^\d{8}$/.test(s)) return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    return m ? m[1] + '-' + pad(m[2]) + '-' + pad(m[3]) : s;
+  }
+
+  function showImportPreview(name) {
+    var p = pendingImport, items = p.items;
+    var ids = {}; data.rows.forEach(function (r) { ids[r.id] = 1; });
+    var nNew = items.filter(function (x) { return !ids[x.id]; }).length;
+    var ys = uniq(items.map(function (x) { return x.year; })).sort();
+    var units = uniq(items.map(function (x) { return x.unit; }));
+    var newUnits = units.filter(function (u) { return !teamOfUnit(u); });
+    var byUnit = units.map(function (u) { var r = items.filter(function (x) { return x.unit === u; }); return '<tr><td>' + esc(u) + '</td><td>' + (teamOfUnit(u) ? esc(teamOfUnit(u)) : '<span class="tag m">팀 미지정</span>') + '</td><td class="n">' + r.length + '</td><td class="n">' + won(sum(r)) + '</td></tr>'; }).join('');
+    $('impPreview').innerHTML = '<p class="note">' + esc(name) + ': 엑셀 ' + p.rows + '줄 → 품의 ' + items.length + '건 (' + ys.join(', ') + '년)<br>새로 들어갈 내역 ' + nNew + '건, 갱신 ' + (items.length - nNew) + '건 · 집행 ' + won(sum(items)) + ' · 지출 ' + won(sum(items, 'paid')) + '</p>' +
+      '<div class="tbl"><table><thead><tr><th>단위사업</th><th>팀</th><th class="n">품의</th><th class="n">집행액</th></tr></thead><tbody>' + byUnit + '</tbody></table></div>' +
+      (newUnits.length ? '<p class="muted">팀이 정해지지 않은 단위사업 ' + newUnits.length + '개는 올린 뒤 팀을 고르게 됩니다.</p>' : '');
+    $('impPreview').hidden = false; $('impGo').disabled = false; $('impMsg').textContent = '';
+  }
+  $('impGo').onclick = function () {
+    if (!pendingImport) return;
+    var btn = this; btn.disabled = true;
+    $('impMsg').className = 'msg'; $('impMsg').textContent = '올리는 중…';
+    call('importEhojo', key, pendingImport.items).then(function (d) {
+      data = d; render();
+      $('impMsg').className = 'msg ok'; $('impMsg').textContent = '올렸습니다. 새 내역 ' + d.result.added + '건, 갱신 ' + d.result.updated + '건.';
+      pendingImport = null;
+      if (unassigned().length) setTimeout(function () { $('importDlg').hidden = true; openAssign(); }, 700);
+    }).catch(function (err) { $('impMsg').className = 'msg err'; $('impMsg').textContent = err.message; btn.disabled = false; });
+  };
+
+  /* ---------- 단위사업 → 팀 배정 ---------- */
+  function openAssign(units) {
+    units = units || unassigned();
+    $('aBody').innerHTML = units.map(function (u) { return '<tr data-unit="' + esc(u) + '"><td style="white-space:normal">' + esc(u) + '</td><td><select class="t as"></select></td></tr>'; }).join('');
+    fillAssignSelects();
+    $('aMsg').textContent = ''; $('assignDlg').hidden = false;
+  }
+  function fillAssignSelects() {
+    [].forEach.call($('aBody').querySelectorAll('select.as'), function (s) {
+      var cur = s.value || teamOfUnit(s.closest('tr').dataset.unit);
+      s.innerHTML = '<option value="">(나중에)</option>' + teamNames().map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
+      s.value = cur || (teamNames().length === 1 ? teamNames()[0] : '');
+    });
+  }
+  $('aAddTeam').onclick = function () {
+    var t = $('aNewTeam').value.trim(); if (!t) return;
+    if (teamNames().indexOf(t) < 0) extraTeams.push(t);
+    $('aNewTeam').value = ''; fillAssignSelects();
+  };
+  $('aSave').onclick = function () {
+    var map = {}, any = false;
+    [].forEach.call($('aBody').querySelectorAll('tr'), function (tr) { var v = tr.querySelector('select').value; if (v) { map[tr.dataset.unit] = v; any = true; } });
+    if (!any) { $('assignDlg').hidden = true; return; }
+    $('aMsg').className = 'msg'; $('aMsg').textContent = '저장하는 중…';
+    call('assignUnits', key, map).then(function (d) { data = d; extraTeams = []; $('assignDlg').hidden = true; render(); })
+      .catch(function (err) { $('aMsg').className = 'msg err'; $('aMsg').textContent = err.message; });
+  };
+
+  /* ---------- 예산·사업 설정 ---------- */
+  $('unitChips').onclick = function (e) {
+    var b = e.target.closest('[data-unassign]'); if (!b) return;
+    if (!confirm(b.dataset.unassign + '을(를) ' + state.team + '에서 뺄까요? 내역과 예산은 그대로 남고 "팀 미지정"으로 갑니다.')) return;
+    var m = {}; m[b.dataset.unassign] = '';
+    call('assignUnits', key, m).then(function (d) { data = d; render(); }).catch(function (err) { $('unitMsg').className = 'msg err'; $('unitMsg').textContent = err.message; });
+  };
+  $('unitAddBtn').onclick = function () {
+    var u = $('unitAddSel').value;
+    if (u === '__new') { u = (prompt('새 단위사업 이름') || '').trim(); if (!u) return; }
+    if (!u) return;
+    var m = {}; m[u] = state.team;
+    $('unitMsg').className = 'msg'; $('unitMsg').textContent = '저장하는 중…';
+    call('assignUnits', key, m).then(function (d) { data = d; render(); $('unitMsg').className = 'msg ok'; $('unitMsg').textContent = u + '을(를) 추가했습니다.'; })
+      .catch(function (err) { $('unitMsg').className = 'msg err'; $('unitMsg').textContent = err.message; });
+  };
+  $('bBody').addEventListener('input', function (e) { if (e.target.classList.contains('bb')) { var n = num(e.target.value); e.target.value = e.target.value.trim() === '' ? '' : n.toLocaleString('ko-KR'); } });
+  function budgetList() {
+    return [].map.call($('bBody').querySelectorAll('tr[data-unit]'), function (tr) {
+      var sub = tr.hasAttribute('data-newsub') ? tr.querySelector('.ns').value.trim() : tr.dataset.sub;
+      return { unit: tr.dataset.unit, sub: sub, budget: tr.querySelector('.bb').value.trim() };
+    }).filter(function (b) { return b.sub; });
+  }
+  $('bCopy').onclick = function () {
+    var y = +state.year - 1, n = 0;
+    [].forEach.call($('bBody').querySelectorAll('tr[data-sub]'), function (tr) {
+      var inp = tr.querySelector('.bb');
+      if (!inp.value && hasBudget(tr.dataset.unit, tr.dataset.sub, y)) { inp.value = comma(budgetOf(tr.dataset.unit, tr.dataset.sub, y)); n++; }
+    });
+    $('bMsg').className = 'msg'; $('bMsg').textContent = n ? y + '년 예산 ' + n + '개를 빈 칸에 채웠습니다. [예산 저장]을 눌러야 저장됩니다.' : y + '년에 불러올 예산이 없습니다.';
+  };
+  $('bSave').onclick = function () {
+    var btn = this; btn.disabled = true;
+    $('bMsg').className = 'msg'; $('bMsg').textContent = '저장하는 중…';
+    call('saveBudgets', key, state.year, budgetList()).then(function (d) {
+      data = d; if (document.activeElement) document.activeElement.blur(); render();
+      $('bMsg').className = 'msg ok'; $('bMsg').textContent = state.year + '년 예산을 저장했습니다.';
+    }).catch(function (err) { $('bMsg').className = 'msg err'; $('bMsg').textContent = err.message; })
+      .then(function () { btn.disabled = false; });
+  };
+
+  /* ---------- 직접 입력 ---------- */
+  function resetEntry() {
+    editingId = null;
+    $('entryTitle').textContent = '직접 입력'; $('saveBtn').textContent = '저장'; $('cancelEdit').hidden = true;
+    $('fDate').value = +state.year === new Date().getFullYear() ? today() : state.year + '-01-01';
+    $('fTime').value = nowTime();
+    $('fVendor').value = ''; $('fAmount').value = ''; $('fMemo').value = ''; $('fItem').value = ''; $('fSubNew').value = '';
+    updateAfterLeft();
+  }
+  $('fUnit').onchange = function () { fillEntrySubs(); updateAfterLeft(); };
+  $('fSub').onchange = function () { $('fSubNew').hidden = this.value !== '__new'; if (!$('fSubNew').hidden) $('fSubNew').focus(); updateAfterLeft(); };
+  $('fSubNew').oninput = updateAfterLeft;
+  $('fAmount').oninput = function () { var n = num(this.value); this.value = n ? n.toLocaleString('ko-KR') : ''; updateAfterLeft(); };
+  $('fDate').onchange = updateAfterLeft;
+  $('cancelEdit').onclick = function () { resetEntry(); $('entryMsg').textContent = ''; showTab('list'); };
+
+  $('entryForm').onsubmit = function (e) {
+    e.preventDefault();
+    var x = { unit: $('fUnit').value, sub: $('fSub').value === '__new' ? $('fSubNew').value.trim() : $('fSub').value, item: $('fItem').value.trim(),
+      person: $('fPerson').value.trim(), date: $('fDate').value, time: $('fTime').value, vendor: $('fVendor').value.trim(), amount: num($('fAmount').value), memo: $('fMemo').value.trim() };
+    var msg = $('entryMsg'); msg.className = 'msg'; msg.textContent = '저장하는 중…';
+    $('saveBtn').disabled = true;
+    var wasEdit = editingId;
+    (wasEdit ? call('updateRow', key, wasEdit, x) : call('addRow', key, x)).then(function (d) {
+      data = d; store('budget_person', x.person);
+      var y = +x.date.slice(0, 4); if (y !== +state.year) state.year = y;
+      resetEntry(); render();
+      $('fSub').value = x.sub; fillEntrySubs();
+      msg.className = 'msg ok'; msg.textContent = (wasEdit ? '수정했습니다. ' : '저장했습니다. ') + x.vendor + ' ' + won(x.amount);
+      if (wasEdit) showTab('list');
+    }).catch(function (err) { msg.className = 'msg err'; msg.textContent = err.message; })
+      .then(function () { $('saveBtn').disabled = false; });
+  };
+
+  $('listBody').onclick = function (e) {
+    var ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
+    if (ed) {
+      var r = data.rows.filter(function (x) { return x.id === ed.dataset.edit; })[0]; if (!r) return;
+      editingId = r.id;
+      $('fUnit').value = r.unit; fillEntrySubs(); $('fSub').value = r.sub; $('fSubNew').hidden = true;
+      $('fPerson').value = r.person; $('fDate').value = r.date; $('fTime').value = r.time || '';
+      $('fVendor').value = r.vendor; $('fAmount').value = r.amount.toLocaleString('ko-KR'); $('fMemo').value = r.memo; $('fItem').value = r.item || '';
+      $('entryTitle').textContent = '직접 입력 내역 수정'; $('saveBtn').textContent = '수정 저장'; $('cancelEdit').hidden = false;
+      $('entryMsg').textContent = '';
+      updateAfterLeft(); showTab('entry');
+    }
+    if (dl) {
+      var d = data.rows.filter(function (x) { return x.id === dl.dataset.del; })[0]; if (!d) return;
+      if (!confirm(d.date + ' ' + d.vendor + ' ' + won(d.amount) + ' 내역을 삭제할까요?')) return;
+      dl.disabled = true;
+      call('deleteRow', key, d.id).then(function (nd) { data = nd; render(); }).catch(function (err) { alert(err.message); dl.disabled = false; });
+    }
+  };
+  $('qUnit').onchange = function () { fillSubFilter(); renderList(); };
+  ['qSub', 'qMonth', 'qPerson'].forEach(function (id) { $(id).onchange = renderList; });
+  $('qText').oninput = renderList;
+
+  /* ---------- 엑셀로 받기 ---------- */
+  $('xlsxBtn').onclick = function () {
+    if (typeof XLSX === 'undefined') { alert('엑셀 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
+    var t = state.team, y = +state.year, rs = filtered(), us = unitsOf(t), all = teamRows(t, y);
+    var wb = XLSX.utils.book_new();
+    var s1 = [['단위사업', '세부사업', '예산', '집행액', '지출액', '남은 예산', '집행률']];
+    us.forEach(function (u) {
+      subsOf(u).forEach(function (s) {
+        var sr = all.filter(function (r) { return r.unit === u && r.sub === s; }), b = budgetOf(u, s, y), su = sum(sr);
+        if (!hasBudget(u, s, y) && !sr.length) return;
+        s1.push([u, s, hasBudget(u, s, y) ? b : '', su, sum(sr, 'paid'), hasBudget(u, s, y) ? b - su : '', b ? Math.round(su / b * 1000) / 10 + '%' : '']);
+      });
+    });
+    var tb = us.reduce(function (s, u) { return s + unitBudget(u, y); }, 0);
+    s1.push(['합계', '', tb, sum(all), sum(all, 'paid'), tb - sum(all), tb ? Math.round(sum(all) / tb * 1000) / 10 + '%' : '']);
+    var ws1 = XLSX.utils.aoa_to_sheet(s1); ws1['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 8 }]; numFmt(ws1, [2, 3, 4, 5]);
+    var ws2 = XLSX.utils.aoa_to_sheet([['일시', '시간', '팀', '단위사업', '세부사업', '통계목', '품의번호', '담당자', '거래처', '적요', '금액', '지출액', '남은금액', '상태']]
+      .concat(rs.map(function (r) { return [r.date, r.time || '', r.team, r.unit, r.sub, r.item, r.no, r.person, r.vendor, r.memo, r.amount, r.paid, r.hasBudget ? r.left : '', r.status || r.src]; })));
+    ws2['!cols'] = [{ wch: 11 }, { wch: 6 }, { wch: 10 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 20 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 9 }];
+    numFmt(ws2, [10, 11, 12]);
+    XLSX.utils.book_append_sheet(wb, ws1, '사업별현황');
+    XLSX.utils.book_append_sheet(wb, ws2, '집행내역');
+    var d = new Date();
+    XLSX.writeFile(wb, t + '_' + y + '년_예산집행_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.xlsx');
+  };
+  function numFmt(ws, cols) {
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    for (var R = 1; R <= range.e.r; R++) cols.forEach(function (C) { var c = ws[XLSX.utils.encode_cell({ r: R, c: C })]; if (c && typeof c.v === 'number') c.z = '#,##0'; });
+  }
+
+  /* ---------- 시작 ---------- */
+  function load() {
+    $('reloadBtn').disabled = true;
+    return call('getData', key).then(function (d) { data = d; render(); })
+      .catch(function (err) {
+        if (/비밀번호/.test(err.message)) { store(KEY_STORE, null); showLogin(err.message); } else alert(err.message);
+      }).then(function () { $('reloadBtn').disabled = false; });
+  }
+  $('reloadBtn').onclick = load;
+
+  function showLogin(m) { $('app').hidden = true; $('login').hidden = false; $('loginMsg').textContent = m || ''; $('pw').focus(); }
+  function enter() {
+    $('login').hidden = true; $('app').hidden = false;
+    $('previewBanner').hidden = !!LIVE;
+    $('fPerson').value = store('budget_person') || '';
+    state.team = store('budget_team') || '';
+    state.year = +(store('budget_year') || new Date().getFullYear());
+    var t = store('budget_tab'); showTab(t && $('tab-' + t) ? t : 'biz');
+    resetEntry();
+    load();
+  }
+  $('loginForm').onsubmit = function (e) {
+    e.preventDefault();
+    var pw = $('pw').value.trim(); if (!pw) return;
+    $('loginMsg').className = 'msg'; $('loginMsg').textContent = '확인하는 중…';
+    call('login', pw).then(function (ok) {
+      if (!ok) { $('loginMsg').className = 'msg err'; $('loginMsg').textContent = '비밀번호가 맞지 않습니다.'; return; }
+      key = pw; store(KEY_STORE, pw); enter();
+    }).catch(function (err) { $('loginMsg').className = 'msg err'; $('loginMsg').textContent = err.message; });
+  };
+
+  key = store(KEY_STORE) || '';
+  if (!LIVE) key = 'preview';
+  if (key) enter(); else showLogin();
+})();
+</script>
+</body>
+</html>
