@@ -8,10 +8,11 @@
  * 시트 구성
  *   팀구성   : 팀 | 단위사업                (단위사업이 어느 팀 것인지)
  *   예산     : 연도 | 단위사업 | 세부사업 | 예산
- *   집행내역 : 번호 | 출처 | 연도 | 단위사업 | 세부사업 | 통계목 | 품의번호 | 일시 | 시간 | 담당자 | 거래처 | 적요 | 금액 | 지출액 | 남은금액 | 상태 | 입력시각
+ *   집행내역 : 번호 | 출처 | 연도 | 단위사업 | 세부사업 | 통계목 | 일시 | 시간 | 담당자 | 거래처 | 금액 | 남은금액 | 입력시각
  *
+ * 이호조 파일에서 저장하는 항목은 단위사업·세부사업·담당자·일시·거래처(앞 두 글자)·금액·통계목뿐이다.
+ * (품의번호·적요·결재자 등은 저장하지 않는다. [번호]는 같은 품의를 알아보기 위한 해시값이다.)
  * 금액     = 원인행위(계약) 금액. 원인행위 전이면 품의금액.
- * 지출액   = 실제로 결의(지출)된 금액의 합.
  * 남은금액 = 그 세부사업·그 연도 예산 − (일시 순으로 그 줄까지의 금액 합)
  */
 
@@ -20,7 +21,7 @@ var SHEET_BUDGET = '예산';
 var SHEET_LOG = '집행내역';
 var TEAM_HEADERS = ['팀', '단위사업'];
 var BUDGET_HEADERS = ['연도', '단위사업', '세부사업', '예산'];
-var LOG_HEADERS = ['번호', '출처', '연도', '단위사업', '세부사업', '통계목', '품의번호', '일시', '시간', '담당자', '거래처', '적요', '금액', '지출액', '남은금액', '상태', '입력시각'];
+var LOG_HEADERS = ['번호', '출처', '연도', '단위사업', '세부사업', '통계목', '일시', '시간', '담당자', '거래처', '금액', '남은금액', '입력시각'];
 var C = {}; LOG_HEADERS.forEach(function (h, i) { C[h] = i; });
 var SRC_EHOJO = '이호조';
 var SRC_MANUAL = '직접입력';
@@ -71,9 +72,8 @@ function setup() {
   ensureSheet_(ss, SHEET_TEAMS, TEAM_HEADERS);
   ensureSheet_(ss, SHEET_BUDGET, BUDGET_HEADERS).getRange('D:D').setNumberFormat('#,##0');
   var log = ensureSheet_(ss, SHEET_LOG, LOG_HEADERS);
-  log.getRange('G:I').setNumberFormat('@');
-  log.getRange('M:O').setNumberFormat('#,##0');
-  log.setColumnWidth(C['적요'] + 1, 260);
+  log.getRange('G:H').setNumberFormat('@');
+  log.getRange('K:L').setNumberFormat('#,##0');
   var first = ss.getSheets()[0];
   if ([SHEET_TEAMS, SHEET_BUDGET, SHEET_LOG].indexOf(first.getName()) < 0 && first.getLastRow() === 0) ss.deleteSheet(first);
   password_();
@@ -195,7 +195,12 @@ function readBudgets_() {
 }
 
 function readLogRaw_() {
-  return body_(ss_().getSheetByName(SHEET_LOG), LOG_HEADERS.length);
+  var sh = ss_().getSheetByName(SHEET_LOG);
+  if (sh && sh.getLastColumn() > 0) {
+    var head = sh.getRange(1, 1, 1, LOG_HEADERS.length).getValues()[0].map(str_);
+    if (head.join('|') !== LOG_HEADERS.join('|')) throw new Error('[집행내역] 시트의 열 구성이 예전 형식입니다. 그 시트 이름을 바꾸거나 지운 뒤 [예산 관리 > 처음 설정하기]를 다시 눌러 주세요.');
+  }
+  return body_(sh, LOG_HEADERS.length);
 }
 
 function toRow_(r) {
@@ -204,9 +209,8 @@ function toRow_(r) {
     id: str_(r[C['번호']]), src: str_(r[C['출처']]) || SRC_MANUAL,
     year: Number(str_(r[C['연도']]).slice(0, 4)) || Number(date.slice(0, 4)) || 0,
     unit: str_(r[C['단위사업']]), sub: str_(r[C['세부사업']]), item: str_(r[C['통계목']]),
-    no: str_(r[C['품의번호']]), date: date, time: timeText_(r[C['시간']]),
-    person: str_(r[C['담당자']]), vendor: str_(r[C['거래처']]), memo: str_(r[C['적요']]),
-    amount: num_(r[C['금액']]), paid: num_(r[C['지출액']]), status: str_(r[C['상태']])
+    date: date, time: timeText_(r[C['시간']]),
+    person: str_(r[C['담당자']]), vendor: str_(r[C['거래처']]), amount: num_(r[C['금액']])
   };
 }
 
@@ -281,7 +285,7 @@ function cleanManual_(x) {
   x = x || {};
   var r = {
     unit: str_(x.unit), sub: str_(x.sub), item: str_(x.item), date: dateText_(x.date), time: timeText_(x.time),
-    person: str_(x.person), vendor: str_(x.vendor), memo: str_(x.memo), amount: num_(x.amount)
+    person: str_(x.person), vendor: str_(x.vendor), amount: num_(x.amount)
   };
   if (!r.unit || !r.sub) throw new Error('단위사업과 세부사업을 골라 주세요.');
   if (!r.person) throw new Error('담당자를 적어 주세요.');
@@ -296,8 +300,7 @@ function manualLine_(id, r) {
   line[C['번호']] = id; line[C['출처']] = SRC_MANUAL; line[C['연도']] = Number(r.date.slice(0, 4));
   line[C['단위사업']] = r.unit; line[C['세부사업']] = r.sub; line[C['통계목']] = r.item;
   line[C['일시']] = r.date; line[C['시간']] = r.time; line[C['담당자']] = r.person;
-  line[C['거래처']] = r.vendor; line[C['적요']] = r.memo; line[C['금액']] = r.amount;
-  line[C['상태']] = '직접입력'; line[C['입력시각']] = now_();
+  line[C['거래처']] = r.vendor; line[C['금액']] = r.amount; line[C['입력시각']] = now_();
   return line;
 }
 
@@ -341,7 +344,7 @@ function deleteRow(key, id) {
 /**
  * 이호조 엑셀에서 읽은 품의 목록을 넣는다. 같은 번호는 덮어쓰고, 새 번호는 뒤에 붙인다.
  * 화면(브라우저)에서 엑셀을 읽어 품의 단위로 묶은 뒤 보낸다.
- * items: [{id, year, unit, sub, item, no, date, person, vendor, memo, amount, paid, status}]
+ * items: [{id, year, unit, sub, item, date, person, vendor, amount}]  (vendor는 앞 두 글자만 남긴다)
  */
 function importEhojo(key, items) {
   check_(key);
@@ -357,15 +360,15 @@ function importEhojo(key, items) {
       var line = LOG_HEADERS.map(function () { return ''; });
       line[C['번호']] = id; line[C['출처']] = SRC_EHOJO; line[C['연도']] = Number(x.year) || Number(String(x.date).slice(0, 4));
       line[C['단위사업']] = str_(x.unit); line[C['세부사업']] = str_(x.sub); line[C['통계목']] = str_(x.item);
-      line[C['품의번호']] = str_(x.no); line[C['일시']] = dateText_(x.date); line[C['시간']] = '';
-      line[C['담당자']] = str_(x.person); line[C['거래처']] = str_(x.vendor); line[C['적요']] = str_(x.memo);
-      line[C['금액']] = num_(x.amount); line[C['지출액']] = num_(x.paid); line[C['상태']] = str_(x.status);
+      line[C['일시']] = dateText_(x.date); line[C['시간']] = '';
+      line[C['담당자']] = str_(x.person); line[C['거래처']] = Array.from(str_(x.vendor)).slice(0, 2).join('');
+      line[C['금액']] = num_(x.amount);
       line[C['입력시각']] = now_();
       if (id in at) { raw[at[id]] = line; updated++; }
       else { at[id] = raw.length; raw.push(line); added++; }
     });
     writeBody_(sh, LOG_HEADERS, raw);
-    sh.getRange('G:I').setNumberFormat('@');
+    sh.getRange('G:H').setNumberFormat('@');
     recalc();
   });
   var d = getData(key);

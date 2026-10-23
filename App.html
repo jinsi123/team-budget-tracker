@@ -16,21 +16,21 @@
     --bg:#F3F5F9; --card:#FFFFFF; --line:#DCE1EB; --line2:#E8EBF2; --text:#141B2D; --muted:#5B6478;
     --accent:#22336B; --accent-2:#3B55A8; --accent-soft:#E7ECF8; --on-accent:#FFFFFF;
     --bad:#C2362B; --bad-soft:#FBE8E6; --warn:#B26B00; --warn-soft:#FCF1DE;
-    --input:#FAFBFD; --track:#E3E7F0; --folder:#DDE4F5; --paid:#8EA2DA;
+    --input:#FAFBFD; --track:#E3E7F0; --folder:#DDE4F5;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg:#0E121C; --card:#161C2A; --line:#283146; --line2:#222A3C; --text:#E6EAF3; --muted:#97A1B8;
       --accent:#9DB2F2; --accent-2:#7F98E6; --accent-soft:#1E2944; --on-accent:#0E121C;
       --bad:#F08A7E; --bad-soft:#3A1F1D; --warn:#E9AE55; --warn-soft:#3A2D17;
-      --input:#1A2133; --track:#283146; --folder:#24304D; --paid:#4A5E99;
+      --input:#1A2133; --track:#283146; --folder:#24304D;
     }
   }
   :root[data-theme="dark"] {
     --bg:#0E121C; --card:#161C2A; --line:#283146; --line2:#222A3C; --text:#E6EAF3; --muted:#97A1B8;
     --accent:#9DB2F2; --accent-2:#7F98E6; --accent-soft:#1E2944; --on-accent:#0E121C;
     --bad:#F08A7E; --bad-soft:#3A1F1D; --warn:#E9AE55; --warn-soft:#3A2D17;
-    --input:#1A2133; --track:#283146; --folder:#24304D; --paid:#4A5E99;
+    --input:#1A2133; --track:#283146; --folder:#24304D;
   }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
@@ -97,8 +97,7 @@
   .kpi.hero.neg { background:var(--bad); border-color:var(--bad); }
   .bar { height:10px; background:var(--track); border-radius:999px; overflow:hidden; position:relative; }
   .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--accent-2); border-radius:999px; }
-  .bar i.paid { background:var(--paid); }
-  .bar.warn i:not(.paid) { background:var(--warn); } .bar.over i:not(.paid) { background:var(--bad); }
+  .bar.warn i { background:var(--warn); } .bar.over i { background:var(--bad); }
   .bar.sm { height:7px; }
   .legend { display:flex; gap:12px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
@@ -110,7 +109,6 @@
   tr:last-child td { border-bottom:0; }
   tfoot td { background:var(--bg); }
   tr.click { cursor:pointer; } tr.click:hover td { background:var(--accent-soft); }
-  td.memo { white-space:normal; min-width:200px; max-width:340px; }
   td .sub { display:block; font-size:12px; color:var(--muted); }
   .neg { color:var(--bad); }
   .tag { display:inline-block; font-size:12px; padding:0 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent); }
@@ -191,8 +189,8 @@
     <section id="tab-biz" class="stack">
       <div class="kpis">
         <div class="kpi"><span id="kBudgetLabel">예산</span><b id="kBudget">-</b></div>
-        <div class="kpi"><span>집행액</span><b id="kUsed">-</b><small id="kUsedRate"></small></div>
-        <div class="kpi"><span>지출액</span><b id="kPaid">-</b><small>실제로 지출(결의)된 금액</small></div>
+        <div class="kpi"><span>집행액</span><b id="kUsed">-</b><small id="kCount"></small></div>
+        <div class="kpi"><span>집행률</span><b id="kRate">-</b><div class="bar" id="kBar" style="margin-top:6px"><i></i></div></div>
         <div class="kpi hero" id="kLeftBox"><span>남은 예산</span><b id="kLeft">-</b></div>
       </div>
       <p class="banner" id="bizWarn" hidden></p>
@@ -210,14 +208,14 @@
           <label class="f">세부사업<select class="t" id="qSub"></select></label>
           <label class="f">담당자<select class="t" id="qPerson"></select></label>
           <label class="f">월<select class="t" id="qMonth"></select></label>
-          <label class="f">검색<input class="t" id="qText" placeholder="적요·거래처·품의번호"></label>
+          <label class="f">검색<input class="t" id="qText" placeholder="거래처·통계목"></label>
         </div>
         <p class="muted" id="listSum"></p>
         <div class="tbl"><table>
-          <thead><tr><th>일시</th><th>시간</th><th>팀</th><th>세부사업</th><th>담당자</th><th>거래처</th><th>적요</th><th class="n">금액</th><th class="n">지출액</th><th class="n">남은금액</th><th>상태</th><th></th></tr></thead>
+          <thead><tr><th>일시</th><th>시간</th><th>팀</th><th>세부사업</th><th>담당자</th><th>거래처</th><th>통계목</th><th class="n">금액</th><th class="n">남은금액</th><th>출처</th><th></th></tr></thead>
           <tbody id="listBody"></tbody><tfoot id="listFoot"></tfoot>
         </table></div>
-        <p class="muted">금액은 계약(원인행위) 금액이고, 계약 전이면 품의금액입니다. 남은금액은 그 세부사업의 그 연도 예산에서 그 건까지의 금액을 뺀 값입니다. 이호조에서 올린 내역은 이호조 엑셀을 다시 올리면 바뀐 내용으로 갱신됩니다.</p>
+        <p class="muted">금액은 계약(원인행위) 금액이고, 계약 전이면 품의금액입니다. 이호조 파일에서는 단위사업·세부사업·담당자·일시·거래처(앞 두 글자)·금액·통계목만 저장합니다. 남은금액은 그 세부사업의 그 연도 예산에서 그 건까지의 금액을 뺀 값입니다. 이호조에서 올린 내역은 이호조 엑셀을 다시 올리면 바뀐 내용으로 갱신됩니다.</p>
       </div>
     </section>
 
@@ -235,7 +233,6 @@
           <label class="f">금액 (원)<input class="t amount" id="fAmount" inputmode="numeric" placeholder="0" style="font-size:18px"></label>
           <label class="f">통계목 (선택)<input class="t" id="fItem" list="itemList" placeholder="예: 201-01-사무관리비"></label>
         </div>
-        <label class="f">적요<input class="t" id="fMemo" placeholder="사용 내용"></label>
         <div class="row between">
           <p class="muted" id="afterLeft"></p>
           <button class="primary" type="submit" id="saveBtn">저장</button>
@@ -356,7 +353,7 @@
       if (!x.person) throw new Error('담당자를 적어 주세요.');
       if (!x.vendor) throw new Error('거래처를 적어 주세요.');
       if (!x.amount) throw new Error('금액을 적어 주세요.');
-      return Object.assign({ id: id, src: '직접입력', year: +x.date.slice(0, 4), no: '', paid: 0, status: '직접입력' }, x);
+      return Object.assign({ id: id, src: '직접입력', year: +x.date.slice(0, 4) }, x);
     }
     return {
       login: function () { return true; },
@@ -409,9 +406,9 @@
   function sum(rs, f) { f = f || 'amount'; return rs.reduce(function (s, r) { return s + (r[f] || 0); }, 0); }
   function pct(a, b) { return b ? a / b * 100 : 0; }
   function barCls(p) { return p > 100 ? 'over' : p >= 90 ? 'warn' : ''; }
-  function bar(used, paid, budget, sm) {
-    var p = pct(used, budget), q = pct(paid, budget);
-    return '<div class="bar ' + (sm ? 'sm ' : '') + barCls(p) + '"><i style="width:' + Math.min(100, p).toFixed(1) + '%"></i><i class="paid" style="width:' + Math.min(100, q).toFixed(1) + '%"></i></div>';
+  function bar(used, budget, sm) {
+    var p = pct(used, budget);
+    return '<div class="bar ' + (sm ? 'sm ' : '') + barCls(p) + '"><i style="width:' + Math.min(100, p).toFixed(1) + '%"></i></div>';
   }
   var FOLDER_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 
@@ -465,12 +462,12 @@
     var y = +state.year;
     $('homeTitle').textContent = y + '년 팀 폴더';
     var html = teamNames().map(function (t) {
-      var us = unitsOf(t), rs = teamRows(t, y), u = sum(rs), pd = sum(rs, 'paid');
+      var us = unitsOf(t), rs = teamRows(t, y), u = sum(rs);
       var b = us.reduce(function (s, x) { return s + unitBudget(x, y); }, 0);
       return '<button class="folder" data-team="' + esc(t) + '">' +
         '<div class="name">' + FOLDER_SVG + '<span>' + esc(t) + '</span></div>' +
         '<div class="units">' + (us.length ? us.map(esc).join(' · ') : '단위사업 없음') + '</div>' +
-        (b ? '<div><p class="muted">남은 예산</p><div class="big' + (b - u < 0 ? ' neg' : '') + '">' + man(b - u) + '</div></div>' + bar(u, pd, b, true) +
+        (b ? '<div><p class="muted">남은 예산</p><div class="big' + (b - u < 0 ? ' neg' : '') + '">' + man(b - u) + '</div></div>' + bar(u, b, true) +
           '<div class="meta"><span>예산 ' + man(b) + '</span><span>집행 ' + pct(u, b).toFixed(1) + '%</span></div>'
           : '<div><p class="muted">' + y + '년 예산 미설정</p><div class="big" style="color:var(--muted)">집행 ' + man(u) + '</div></div>') +
         '<div class="meta"><span>' + rs.length + '건</span><span>' + (rs.length ? '최근 ' + rs[rs.length - 1].date.slice(5).replace('-', '.') : '') + '</span></div>' +
@@ -492,13 +489,16 @@
     var t = state.team, y = +state.year, us = unitsOf(t);
     $('teamName').textContent = t;
     var rows = teamRows(t, y);
-    var used = sum(rows), paid = sum(rows, 'paid');
+    var used = sum(rows);
     var total = us.reduce(function (s, u) { return s + unitBudget(u, y); }, 0), left = total - used;
     $('kBudgetLabel').textContent = y + '년 예산';
     $('kBudget').textContent = total ? won(total) : '미설정';
     $('kUsed').textContent = won(used);
-    $('kUsedRate').textContent = total ? '집행률 ' + pct(used, total).toFixed(1) + '%' : '';
-    $('kPaid').textContent = won(paid);
+    $('kCount').textContent = rows.length + '건';
+    var rate = pct(used, total);
+    $('kRate').textContent = total ? rate.toFixed(1) + '%' : '-';
+    $('kBar').className = 'bar ' + barCls(rate);
+    $('kBar').firstElementChild.style.width = Math.min(100, rate) + '%';
     $('kLeft').textContent = total ? won(left) : '-';
     $('kLeftBox').className = 'kpi hero' + (total && left < 0 ? ' neg' : '');
     var missing = [];
@@ -510,17 +510,17 @@
     // 단위사업 카드
     $('unitCards').innerHTML = us.map(function (u) {
       var subs = subsOf(u), ur = rows.filter(function (r) { return r.unit === u; });
-      var ub = unitBudget(u, y), uu = sum(ur), up = sum(ur, 'paid');
+      var ub = unitBudget(u, y), uu = sum(ur);
       var trs = subs.map(function (s) {
-        var sr = ur.filter(function (r) { return r.sub === s; }), b = budgetOf(u, s, y), has = hasBudget(u, s, y), su = sum(sr), sp = sum(sr, 'paid');
+        var sr = ur.filter(function (r) { return r.sub === s; }), b = budgetOf(u, s, y), has = hasBudget(u, s, y), su = sum(sr);
         if (!has && !sr.length) return '';
-        return '<tr class="click" data-sub="' + esc(s) + '" data-unit="' + esc(u) + '"><td>' + esc(s) + '</td><td class="n">' + (has ? won(b) : '<span class="muted">미설정</span>') + '</td><td class="n">' + won(su) + '</td><td class="n">' + won(sp) +
-          '</td><td class="n' + (has && b - su < 0 ? ' neg' : '') + '">' + (has ? won(b - su) : '-') + '</td><td style="min-width:130px">' + (has && b ? '<div class="row" style="flex-wrap:nowrap;gap:6px"><div style="flex:1">' + bar(su, sp, b, true) + '</div><span style="min-width:46px;text-align:right">' + pct(su, b).toFixed(1) + '%</span></div>' : '') + '</td><td class="n">' + sr.length + '</td></tr>';
+        return '<tr class="click" data-sub="' + esc(s) + '" data-unit="' + esc(u) + '"><td>' + esc(s) + '</td><td class="n">' + (has ? won(b) : '<span class="muted">미설정</span>') + '</td><td class="n">' + won(su) +
+          '</td><td class="n' + (has && b - su < 0 ? ' neg' : '') + '">' + (has ? won(b - su) : '-') + '</td><td style="min-width:130px">' + (has && b ? '<div class="row" style="flex-wrap:nowrap;gap:6px"><div style="flex:1">' + bar(su, b, true) + '</div><span style="min-width:46px;text-align:right">' + pct(su, b).toFixed(1) + '%</span></div>' : '') + '</td><td class="n">' + sr.length + '</td></tr>';
       }).join('');
       return '<div class="card"><div class="unit-head"><h2>' + esc(u) + '</h2><span class="muted">예산 ' + won(ub) + ' · 집행 ' + won(uu) + ' · 남은 ' + won(ub - uu) + '</span></div>' +
-        '<div class="tbl"><table><thead><tr><th>세부사업</th><th class="n">예산</th><th class="n">집행액</th><th class="n">지출액</th><th class="n">남은 예산</th><th>집행률</th><th class="n">건수</th></tr></thead><tbody>' +
-        (trs || '<tr><td colspan="7" class="empty">' + y + '년 예산·집행이 없습니다.</td></tr>') + '</tbody></table></div></div>';
-    }).join('') + (us.length ? '<div class="legend"><span><i style="background:var(--accent-2)"></i>집행액(계약·품의)</span><span><i style="background:var(--paid)"></i>지출액(결의)</span><span>세부사업을 누르면 그 집행내역으로 갑니다.</span></div>' : '');
+        '<div class="tbl"><table><thead><tr><th>세부사업</th><th class="n">예산</th><th class="n">집행액</th><th class="n">남은 예산</th><th>집행률</th><th class="n">건수</th></tr></thead><tbody>' +
+        (trs || '<tr><td colspan="6" class="empty">' + y + '년 예산·집행이 없습니다.</td></tr>') + '</tbody></table></div></div>';
+    }).join('') + (us.length ? '<div class="legend"><span>집행액 = 계약(원인행위) 금액, 계약 전이면 품의금액</span><span>세부사업을 누르면 그 집행내역으로 갑니다.</span></div>' : '');
 
     // 월별
     var ms = []; for (var m = 1; m <= 12; m++) ms.push(sum(rows.filter(function (r) { return +r.date.slice(5, 7) === m; })));
@@ -569,7 +569,7 @@
     var u = $('qUnit').value, s = $('qSub').value, p = $('qPerson').value, m = $('qMonth').value, q = $('qText').value.trim().toLowerCase();
     return teamRows(state.team, state.year).filter(function (r) {
       return (!u || r.unit === u) && (!s || r.sub === s) && (!p || r.person === p) && (!m || r.date.slice(0, 7) === m) &&
-        (!q || (r.memo + ' ' + r.vendor + ' ' + r.no + ' ' + r.item).toLowerCase().indexOf(q) >= 0);
+        (!q || (r.vendor + ' ' + (r.item || '')).toLowerCase().indexOf(q) >= 0);
     });
   }
 
@@ -578,12 +578,12 @@
     $('listBody').innerHTML = rs.slice().reverse().slice(0, 500).map(function (r) {
       var manual = r.src !== '이호조';
       return '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.time || '') + '</td><td>' + esc(r.team) + '</td><td>' + esc(r.sub) + '<span class="sub">' + esc(r.unit) + '</span></td><td>' + esc(r.person) + '</td><td>' + esc(r.vendor) +
-        '</td><td class="memo">' + esc(r.memo) + '<span class="sub">' + esc([r.item, r.no ? '품의 ' + r.no : ''].filter(Boolean).join(' · ')) + '</span></td><td class="n">' + won(r.amount) + '</td><td class="n">' + (r.paid ? won(r.paid) : '<span class="muted">-</span>') +
-        '</td><td class="n' + (r.hasBudget && r.left < 0 ? ' neg' : '') + '">' + (r.hasBudget ? won(r.left) : '<span class="muted">예산 없음</span>') + '</td><td><span class="tag' + (manual ? ' m' : '') + '">' + esc(r.status || r.src) + '</span></td><td>' +
+        '</td><td>' + esc(r.item || '') + '</td><td class="n">' + won(r.amount) +
+        '</td><td class="n' + (r.hasBudget && r.left < 0 ? ' neg' : '') + '">' + (r.hasBudget ? won(r.left) : '<span class="muted">예산 없음</span>') + '</td><td><span class="tag' + (manual ? ' m' : '') + '">' + esc(r.src) + '</span></td><td>' +
         (manual ? '<button class="x" data-edit="' + esc(r.id) + '">수정</button><button class="x del" data-del="' + esc(r.id) + '">삭제</button>' : '') + '</td></tr>';
-    }).join('') || '<tr><td colspan="12" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
-    $('listFoot').innerHTML = rs.length ? '<tr><td colspan="7">합계 ' + rs.length + '건' + (rs.length > 500 ? ' (최근 500건 표시)' : '') + '</td><td class="n">' + won(sum(rs)) + '</td><td class="n">' + won(sum(rs, 'paid')) + '</td><td colspan="3"></td></tr>' : '';
-    $('listSum').textContent = state.year + '년 · ' + rs.length + '건 · 집행 ' + won(sum(rs)) + ' · 지출 ' + won(sum(rs, 'paid'));
+    }).join('') || '<tr><td colspan="11" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
+    $('listFoot').innerHTML = rs.length ? '<tr><td colspan="7">합계 ' + rs.length + '건' + (rs.length > 500 ? ' (최근 500건 표시)' : '') + '</td><td class="n">' + won(sum(rs)) + '</td><td colspan="3"></td></tr>' : '';
+    $('listSum').textContent = state.year + '년 · ' + rs.length + '건 · 집행 ' + won(sum(rs));
   }
 
   function renderSetup() {
@@ -684,7 +684,9 @@
   /**
    * 이호조 지출집행현황 → 품의 단위 목록.
    * 한 품의에 결의·지급이 여러 줄로 나오므로(분할 지급 등) 품의번호·품의일자·세부사업·통계목으로 묶는다.
-   * 금액 = 원인행위 금액(원인번호별 1번씩), 원인행위 전이면 품의금액. 지출액 = 결의금액 합.
+   * 금액 = 원인행위 금액(원인번호별 1번씩), 원인행위 전이면 품의금액.
+   * 저장하는 항목은 단위사업·세부사업·담당자·일시·거래처(앞 두 글자)·금액·통계목뿐이다.
+   * 품의번호 등은 같은 품의를 묶는 데만 쓰고, 번호는 되돌릴 수 없는 값(해시)으로 바꿔 저장한다.
    */
   function parseEhojo(aoa) {
     var hr = -1;
@@ -698,8 +700,7 @@
     var vendOrder = vend.length >= 4 ? [vend[1], vend[2], vend[3], vend[0]] : vend;
     var c = {
       unit: ix('단위사업'), sub: ix('세부사업'), subCode: ix('세부사업코드'), item: ix('통계목') >= 0 ? ix('통계목') : ix('통계목명'), itemCode: ix('통계목코드'),
-      memo: ix('적요'), no: ix('품의번호'), date: ix('품의일자'), qAmt: ix('품의금액'), oNo: ix('원인번호'), oAmt: ix('원인금액'),
-      rAmt: ix('결의금액'), rState: ix('결의상태'), pDate: ix('지급일자'), person: ix('품의담당자')
+      no: ix('품의번호'), date: ix('품의일자'), qAmt: ix('품의금액'), oNo: ix('원인번호'), oAmt: ix('원인금액'), person: ix('품의담당자')
     };
     var g = {}, order = [];
     var v = function (row, k) { return c[k] >= 0 ? row[c[k]] : ''; };
@@ -708,27 +709,35 @@
       if (!String(v(row, 'sub')).trim() || String(v(row, 'no')).trim() === '') continue;
       var no = String(v(row, 'no')).replace(/\.0+$/, '').trim();
       var date = ymd(v(row, 'date'));
-      var id = 'E' + date.slice(0, 4) + '-' + no + '-' + date.replace(/-/g, '') + '-' + (String(v(row, 'subCode')).trim() || v(row, 'sub')) + '-' + (String(v(row, 'itemCode')).trim() || v(row, 'item'));
-      var x = g[id];
+      var key = no + '|' + date + '|' + (String(v(row, 'subCode')).trim() || v(row, 'sub')) + '|' + (String(v(row, 'itemCode')).trim() || v(row, 'item'));
+      var x = g[key];
       if (!x) {
-        x = g[id] = { id: id, year: +date.slice(0, 4), unit: String(v(row, 'unit')).trim(), sub: String(v(row, 'sub')).trim(), item: String(v(row, 'item')).trim(),
-          no: no, date: date, person: String(v(row, 'person')).trim(), vendor: '', memo: String(v(row, 'memo')).trim(), q: num(v(row, 'qAmt')), o: {}, paid: 0, hasR: false, hasP: false };
-        order.push(id);
+        x = g[key] = { id: 'E' + date.slice(0, 4) + '-' + hash(key), year: +date.slice(0, 4), unit: String(v(row, 'unit')).trim(), sub: String(v(row, 'sub')).trim(), item: String(v(row, 'item')).trim(),
+          date: date, person: String(v(row, 'person')).trim(), vendor: '', q: num(v(row, 'qAmt')), o: {} };
+        order.push(key);
       }
       var on = String(v(row, 'oNo')).trim();
       if (on && !(on in x.o)) x.o[on] = num(v(row, 'oAmt'));
-      if (String(v(row, 'rAmt')).trim() !== '' && String(v(row, 'rState')).trim() !== '') { x.paid += num(v(row, 'rAmt')); x.hasR = true; }
-      if (String(v(row, 'pDate')).trim()) x.hasP = true;
-      if (!x.vendor) for (var k = 0; k < vendOrder.length; k++) { var vv = String(row[vendOrder[k]] || '').trim(); if (vv) { x.vendor = vv; break; } }
+      if (!x.vendor) for (var k = 0; k < vendOrder.length; k++) { var vv = String(row[vendOrder[k]] || '').trim(); if (vv) { x.vendor = short2(vv); break; } }
     }
-    var items = order.map(function (id) {
-      var x = g[id], os = Object.keys(x.o);
-      var amount = os.length ? os.reduce(function (s, k) { return s + x.o[k]; }, 0) : x.q;
-      var status = x.hasP ? '지급' : x.hasR ? '지출결의' : os.length ? '원인행위' : '품의';
-      return { id: x.id, year: x.year, unit: x.unit, sub: x.sub, item: x.item, no: x.no, date: x.date, person: x.person, vendor: x.vendor, memo: x.memo, amount: amount, paid: x.paid, status: status };
+    var items = order.map(function (k) {
+      var x = g[k], os = Object.keys(x.o);
+      var amount = os.length ? os.reduce(function (s, kk) { return s + x.o[kk]; }, 0) : x.q;
+      return { id: x.id, year: x.year, unit: x.unit, sub: x.sub, item: x.item, date: x.date, person: x.person, vendor: x.vendor, amount: amount };
     });
     if (!items.length) throw new Error('읽을 수 있는 품의 내역이 없습니다.');
     return { rows: aoa.length - hr - 1, items: items };
+  }
+  /** 거래처 앞 두 글자. (주)·주식회사 같은 말은 먼저 뺀다. */
+  function short2(v) {
+    var s = String(v).replace(/\(주\)|㈜|주식회사|\(유\)|유한회사|\(재\)|재단법인|\(사\)|사단법인|\(합\)|합자회사/g, '').replace(/\s+/g, '');
+    return Array.from(s || String(v).trim()).slice(0, 2).join('');
+  }
+  /** 같은 품의를 다시 올렸을 때 알아보기 위한 번호. 원래 품의번호로 되돌릴 수 없다. */
+  function hash(s) {
+    var h1 = 0x811c9dc5, h2 = 0x01000193 ^ 0x5bd1e995;
+    for (var i = 0; i < s.length; i++) { var ch = s.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 16777619) >>> 0; h2 = Math.imul(h2 ^ ch, 2246822507) >>> 0; }
+    return ('0000000' + h1.toString(16)).slice(-8) + ('0000000' + h2.toString(16)).slice(-8);
   }
   function ymd(v) {
     if (typeof v === 'number' && v > 19000000) v = String(v);
@@ -747,7 +756,7 @@
     var units = uniq(items.map(function (x) { return x.unit; }));
     var newUnits = units.filter(function (u) { return !teamOfUnit(u); });
     var byUnit = units.map(function (u) { var r = items.filter(function (x) { return x.unit === u; }); return '<tr><td>' + esc(u) + '</td><td>' + (teamOfUnit(u) ? esc(teamOfUnit(u)) : '<span class="tag m">팀 미지정</span>') + '</td><td class="n">' + r.length + '</td><td class="n">' + won(sum(r)) + '</td></tr>'; }).join('');
-    $('impPreview').innerHTML = '<p class="note">' + esc(name) + ': 엑셀 ' + p.rows + '줄 → 품의 ' + items.length + '건 (' + ys.join(', ') + '년)<br>새로 들어갈 내역 ' + nNew + '건, 갱신 ' + (items.length - nNew) + '건 · 집행 ' + won(sum(items)) + ' · 지출 ' + won(sum(items, 'paid')) + '</p>' +
+    $('impPreview').innerHTML = '<p class="note">' + esc(name) + ': 엑셀 ' + p.rows + '줄 → 품의 ' + items.length + '건 (' + ys.join(', ') + '년)<br>새로 들어갈 내역 ' + nNew + '건, 갱신 ' + (items.length - nNew) + '건 · 집행 ' + won(sum(items)) + '<br>저장 항목: 단위사업·세부사업·담당자·일시·거래처(앞 두 글자)·금액·통계목</p>' +
       '<div class="tbl"><table><thead><tr><th>단위사업</th><th>팀</th><th class="n">품의</th><th class="n">집행액</th></tr></thead><tbody>' + byUnit + '</tbody></table></div>' +
       (newUnits.length ? '<p class="muted">팀이 정해지지 않은 단위사업 ' + newUnits.length + '개는 올린 뒤 팀을 고르게 됩니다.</p>' : '');
     $('impPreview').hidden = false; $('impGo').disabled = false; $('impMsg').textContent = '';
@@ -839,7 +848,7 @@
     $('entryTitle').textContent = '직접 입력'; $('saveBtn').textContent = '저장'; $('cancelEdit').hidden = true;
     $('fDate').value = +state.year === new Date().getFullYear() ? today() : state.year + '-01-01';
     $('fTime').value = nowTime();
-    $('fVendor').value = ''; $('fAmount').value = ''; $('fMemo').value = ''; $('fItem').value = ''; $('fSubNew').value = '';
+    $('fVendor').value = ''; $('fAmount').value = ''; $('fItem').value = ''; $('fSubNew').value = '';
     updateAfterLeft();
   }
   $('fUnit').onchange = function () { fillEntrySubs(); updateAfterLeft(); };
@@ -852,7 +861,7 @@
   $('entryForm').onsubmit = function (e) {
     e.preventDefault();
     var x = { unit: $('fUnit').value, sub: $('fSub').value === '__new' ? $('fSubNew').value.trim() : $('fSub').value, item: $('fItem').value.trim(),
-      person: $('fPerson').value.trim(), date: $('fDate').value, time: $('fTime').value, vendor: $('fVendor').value.trim(), amount: num($('fAmount').value), memo: $('fMemo').value.trim() };
+      person: $('fPerson').value.trim(), date: $('fDate').value, time: $('fTime').value, vendor: $('fVendor').value.trim(), amount: num($('fAmount').value) };
     var msg = $('entryMsg'); msg.className = 'msg'; msg.textContent = '저장하는 중…';
     $('saveBtn').disabled = true;
     var wasEdit = editingId;
@@ -874,7 +883,7 @@
       editingId = r.id;
       $('fUnit').value = r.unit; fillEntrySubs(); $('fSub').value = r.sub; $('fSubNew').hidden = true;
       $('fPerson').value = r.person; $('fDate').value = r.date; $('fTime').value = r.time || '';
-      $('fVendor').value = r.vendor; $('fAmount').value = r.amount.toLocaleString('ko-KR'); $('fMemo').value = r.memo; $('fItem').value = r.item || '';
+      $('fVendor').value = r.vendor; $('fAmount').value = r.amount.toLocaleString('ko-KR'); $('fItem').value = r.item || '';
       $('entryTitle').textContent = '직접 입력 내역 수정'; $('saveBtn').textContent = '수정 저장'; $('cancelEdit').hidden = false;
       $('entryMsg').textContent = '';
       updateAfterLeft(); showTab('entry');
@@ -895,21 +904,21 @@
     if (typeof XLSX === 'undefined') { alert('엑셀 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
     var t = state.team, y = +state.year, rs = filtered(), us = unitsOf(t), all = teamRows(t, y);
     var wb = XLSX.utils.book_new();
-    var s1 = [['단위사업', '세부사업', '예산', '집행액', '지출액', '남은 예산', '집행률']];
+    var s1 = [['단위사업', '세부사업', '예산', '집행액', '남은 예산', '집행률']];
     us.forEach(function (u) {
       subsOf(u).forEach(function (s) {
         var sr = all.filter(function (r) { return r.unit === u && r.sub === s; }), b = budgetOf(u, s, y), su = sum(sr);
         if (!hasBudget(u, s, y) && !sr.length) return;
-        s1.push([u, s, hasBudget(u, s, y) ? b : '', su, sum(sr, 'paid'), hasBudget(u, s, y) ? b - su : '', b ? Math.round(su / b * 1000) / 10 + '%' : '']);
+        s1.push([u, s, hasBudget(u, s, y) ? b : '', su, hasBudget(u, s, y) ? b - su : '', b ? Math.round(su / b * 1000) / 10 + '%' : '']);
       });
     });
     var tb = us.reduce(function (s, u) { return s + unitBudget(u, y); }, 0);
-    s1.push(['합계', '', tb, sum(all), sum(all, 'paid'), tb - sum(all), tb ? Math.round(sum(all) / tb * 1000) / 10 + '%' : '']);
-    var ws1 = XLSX.utils.aoa_to_sheet(s1); ws1['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 8 }]; numFmt(ws1, [2, 3, 4, 5]);
-    var ws2 = XLSX.utils.aoa_to_sheet([['일시', '시간', '팀', '단위사업', '세부사업', '통계목', '품의번호', '담당자', '거래처', '적요', '금액', '지출액', '남은금액', '상태']]
-      .concat(rs.map(function (r) { return [r.date, r.time || '', r.team, r.unit, r.sub, r.item, r.no, r.person, r.vendor, r.memo, r.amount, r.paid, r.hasBudget ? r.left : '', r.status || r.src]; })));
-    ws2['!cols'] = [{ wch: 11 }, { wch: 6 }, { wch: 10 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 20 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 9 }];
-    numFmt(ws2, [10, 11, 12]);
+    s1.push(['합계', '', tb, sum(all), tb - sum(all), tb ? Math.round(sum(all) / tb * 1000) / 10 + '%' : '']);
+    var ws1 = XLSX.utils.aoa_to_sheet(s1); ws1['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 8 }]; numFmt(ws1, [2, 3, 4]);
+    var ws2 = XLSX.utils.aoa_to_sheet([['팀', '단위사업', '세부사업', '담당자', '일시', '시간', '거래처', '금액', '남은금액', '통계목', '출처']]
+      .concat(rs.map(function (r) { return [r.team, r.unit, r.sub, r.person, r.date, r.time || '', r.vendor, r.amount, r.hasBudget ? r.left : '', r.item || '', r.src]; })));
+    ws2['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 22 }, { wch: 8 }, { wch: 11 }, { wch: 6 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 8 }];
+    numFmt(ws2, [7, 8]);
     XLSX.utils.book_append_sheet(wb, ws1, '사업별현황');
     XLSX.utils.book_append_sheet(wb, ws2, '집행내역');
     var d = new Date();
