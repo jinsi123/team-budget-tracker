@@ -35,15 +35,15 @@
   }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
-  body { font-family:'GyeonggiBatang',"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,serif; font-size:15px; line-height:1.6; color:var(--text); background:var(--bg); margin:0; }
-  button, input, select { font-family:inherit; }
+  body { font-family:'GyeonggiBatang',"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,serif; font-size:15px; line-height:1.6; color:var(--text); background:var(--bg); margin:0; font-weight:bold; }
+  button, input, select { font-family:inherit; font-weight:inherit; }
   .wrap { max-width:1440px; margin:0 auto; padding:20px 16px 56px; display:flex; flex-direction:column; gap:16px; }
   .stack { display:flex; flex-direction:column; gap:16px; min-width:0; }
-  h1 { font-size:22px; margin:0; font-weight:normal; letter-spacing:-.2px; }
-  h2 { font-size:17px; margin:0; font-weight:normal; }
-  h3 { font-size:15px; margin:0; font-weight:normal; }
+  h1 { font-size:22px; margin:0; font-weight:bold; letter-spacing:-.2px; }
+  h2 { font-size:17px; margin:0; font-weight:bold; }
+  h3 { font-size:15px; margin:0; font-weight:bold; }
   p { margin:0; }
-  b, strong, th { font-weight:normal; }
+  b, strong, th { font-weight:bold; }
   .muted { color:var(--muted); font-size:13px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -132,6 +132,7 @@
   .t { font-size:15px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:var(--input); color:var(--text); min-width:0; width:100%; }
   .t:focus { outline:2px solid var(--accent-2); outline-offset:-1px; }
   select.t { background:var(--card); }
+  select.t.year { width:auto; padding:7px 12px; border-radius:999px; }
   .amount { text-align:right; font-variant-numeric:tabular-nums; }
   .msg { font-size:13px; } .msg.ok { color:var(--accent-2); } .msg.err { color:var(--bad); }
   .empty { text-align:center; color:var(--muted); padding:22px 8px; }
@@ -165,11 +166,10 @@
 </div>
 
 <div class="wrap" id="app" hidden>
-  <div id="previewBanner" class="banner" hidden>미리보기입니다. 모든 내용은 가상의 커피숍 예시이며, 입력하거나 엑셀을 올려도 저장되지 않습니다.</div>
   <div class="top">
     <div class="brand"><div class="logo">₩</div><div><h1>예산 사용 관리</h1><p class="muted" id="asof"></p></div></div>
     <div class="row">
-      <div class="seg" id="yearSeg" aria-label="연도"></div>
+      <select class="t year" id="yearSel" aria-label="연도"></select>
       <button class="primary" data-import>이호조 엑셀 올리기</button>
       <button id="reloadBtn">새로고침</button>
     </div>
@@ -428,7 +428,9 @@
   function unassigned() { return allUnits().filter(function (u) { return !teamOfUnit(u); }); }
   function subsOf(unit) { return uniq(data.budgets.filter(function (b) { return b.unit === unit; }).map(function (b) { return b.sub; }).concat(data.rows.filter(function (r) { return r.unit === unit; }).map(function (r) { return r.sub; }))); }
   function years() {
-    var ys = data.budgets.map(function (b) { return +b.year; }).concat(data.rows.map(function (r) { return +r.year; }), [new Date().getFullYear()]);
+    var now = new Date().getFullYear(), ys = [];
+    for (var y = now - 5; y <= now + 1; y++) ys.push(y);
+    ys = ys.concat(data.budgets.map(function (b) { return +b.year; }), data.rows.map(function (r) { return +r.year; }));
     return uniq(ys).filter(function (y) { return y > 1999; }).sort();
   }
   function budgetOf(unit, sub, year) { return sum(data.budgets.filter(function (b) { return b.unit === unit && b.sub === sub && +b.year === +year; }), 'budget'); }
@@ -456,8 +458,9 @@
   function render() {
     withLeftCache = null;
     var ys = years();
-    if (ys.indexOf(+state.year) < 0) state.year = ys[ys.length - 1];
-    $('yearSeg').innerHTML = ys.map(function (y) { return '<button data-year="' + y + '" class="' + (y === +state.year ? 'on' : '') + '">' + y + '년</button>'; }).join('');
+    if (ys.indexOf(+state.year) < 0) state.year = new Date().getFullYear();
+    $('yearSel').innerHTML = ys.slice().reverse().map(function (y) { return '<option value="' + y + '">' + y + '년</option>'; }).join('');
+    $('yearSel').value = String(state.year);
     var d = new Date();
     $('asof').textContent = d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '. ' + nowTime() + ' 기준';
     if (state.team && teamNames().indexOf(state.team) < 0) state.team = '';
@@ -684,7 +687,7 @@
     store('budget_tab', name);
   }
   $('backBtn').onclick = goHome;
-  $('yearSeg').onclick = function (e) { var b = e.target.closest('[data-year]'); if (!b) return; state.year = +b.dataset.year; store('budget_year', state.year); $('qMonth').value = ''; render(); };
+  $('yearSel').onchange = function () { state.year = +this.value; store('budget_year', state.year); $('qMonth').value = ''; render(); };
   $('folders').onclick = function (e) {
     if (e.target.closest('#addTeam')) { $('nName').value = ''; $('nMsg').textContent = ''; $('newTeam').hidden = false; $('nName').focus(); return; }
     if (e.target.closest('[data-assign]')) { openAssign(); return; }
@@ -996,7 +999,6 @@
   function showLogin(m) { $('app').hidden = true; $('login').hidden = false; $('loginMsg').textContent = m || ''; $('pw').focus(); }
   function enter() {
     $('login').hidden = true; $('app').hidden = false;
-    $('previewBanner').hidden = !!LIVE;
     $('fPerson').value = store('budget_person') || '';
     state.team = store('budget_team') || '';
     state.year = +(store('budget_year') || new Date().getFullYear());
