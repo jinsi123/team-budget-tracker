@@ -37,7 +37,7 @@
   [hidden] { display:none !important; }
   body { font-family:'GyeonggiBatang',"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,serif; font-size:15px; line-height:1.6; color:var(--text); background:var(--bg); margin:0; }
   button, input, select { font-family:inherit; }
-  .wrap { max-width:1120px; margin:0 auto; padding:20px 16px 56px; display:flex; flex-direction:column; gap:16px; }
+  .wrap { max-width:1440px; margin:0 auto; padding:20px 16px 56px; display:flex; flex-direction:column; gap:16px; }
   .stack { display:flex; flex-direction:column; gap:16px; min-width:0; }
   h1 { font-size:22px; margin:0; font-weight:normal; letter-spacing:-.2px; }
   h2 { font-size:17px; margin:0; font-weight:normal; }
@@ -54,6 +54,13 @@
   button:disabled { opacity:.5; cursor:default; }
   button.x { border:0; background:transparent; color:var(--muted); padding:2px 6px; font-size:13px; }
   button.x:hover { color:var(--accent-2); } button.x.del:hover { color:var(--bad); }
+  th.acts, td.acts { position:sticky; right:0; background:var(--card); box-shadow:inset 1px 0 0 var(--line2); }
+  th.acts { background:var(--bg); }
+  .acts .row { flex-wrap:nowrap; gap:6px; }
+  button.act { padding:5px 12px; font-size:13px; border-radius:8px; border-color:var(--accent-2); color:var(--accent-2); }
+  button.act:hover { background:var(--accent-soft); }
+  button.act.del { border-color:var(--bad); color:var(--bad); }
+  button.act.del:hover { background:var(--bad-soft); }
   .banner { background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:8px 12px; font-size:13px; }
   .note { background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:10px 12px; font-size:13px; }
 
@@ -213,7 +220,7 @@
         </div>
         <p class="muted" id="listSum"></p>
         <div class="tbl"><table>
-          <thead><tr><th>일시</th><th>시간</th><th>팀</th><th>세부사업</th><th>담당자</th><th>거래처</th><th>통계목</th><th class="n">금액</th><th class="n">남은금액</th><th>출처</th><th></th></tr></thead>
+          <thead><tr><th>일시</th><th>시간</th><th>팀</th><th>세부사업</th><th>담당자</th><th>거래처</th><th>통계목</th><th class="n">금액</th><th class="n">남은금액</th><th>출처</th><th class="acts">수정·삭제</th></tr></thead>
           <tbody id="listBody"></tbody><tfoot id="listFoot"></tfoot>
         </table></div>
         <p class="muted">금액은 계약(원인행위) 금액이고, 계약 전이면 품의금액입니다. 이호조 파일에서는 단위사업·세부사업·담당자·일시·거래처(앞 두 글자)·금액·통계목만 저장합니다. 남은금액은 그 세부사업의 그 연도 예산에서 그 건까지의 금액을 뺀 값입니다. 이호조에서 올린 내역은 이호조 엑셀을 다시 올리면 바뀐 내용으로 갱신됩니다.</p>
@@ -232,14 +239,14 @@
           <label class="f">시간<input class="t" id="fTime" type="time"></label>
           <label class="f">거래처<input class="t" id="fVendor" list="vendorList" placeholder="예: ○○문구"></label>
           <label class="f">금액 (원)<input class="t amount" id="fAmount" inputmode="numeric" placeholder="0" style="font-size:18px"></label>
-          <label class="f">통계목 (선택)<input class="t" id="fItem" list="itemList" placeholder="예: 201-01-사무관리비"></label>
+          <label class="f">통계목<select class="t" id="fItem"></select></label>
         </div>
         <div class="row between">
           <p class="muted" id="afterLeft"></p>
           <button class="primary" type="submit" id="saveBtn">저장</button>
         </div>
         <p class="msg" id="entryMsg"></p>
-        <datalist id="personList"></datalist><datalist id="vendorList"></datalist><datalist id="itemList"></datalist>
+        <datalist id="personList"></datalist><datalist id="vendorList"></datalist>
       </form>
     </section>
 
@@ -540,7 +547,6 @@
     var all = data.rows.filter(function (r) { return us.indexOf(r.unit) >= 0; });
     $('personList').innerHTML = uniq(all.map(function (r) { return r.person; })).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
     $('vendorList').innerHTML = uniq(all.map(function (r) { return r.vendor; })).slice(0, 200).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
-    $('itemList').innerHTML = uniq(all.map(function (r) { return r.item; })).map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
     var ku = $('fUnit').value;
     setOptions($('fUnit'), us);
     if (us.indexOf(ku) >= 0) $('fUnit').value = ku;
@@ -559,6 +565,53 @@
     var u = $('qUnit').value, us = u ? [u] : unitsOf(state.team);
     setOptions($('qSub'), uniq([].concat.apply([], us.map(subsOf))), '전체 세부사업');
   }
+  /** 지방자치단체 세출 통계목 (예산편성 운영기준 [별표 11] 세출예산 성질별 분류). 값은 "201-01-사무관리비" 꼴로 저장한다. */
+  var ITEM_GROUPS = [
+    ['101 인건비', ['101-01 보수', '101-02 기타직 보수', '101-03 공무직(무기계약)근로자보수', '101-04 기간제근로자등 보수']],
+    ['201 일반운영비', ['201-01 사무관리비', '201-02 공공운영비', '201-03 행사운영비', '201-04 맞춤형복지제도 시행경비', '201-05 공립대학 운영비']],
+    ['202 여비', ['202-01 국내여비', '202-02 월액여비', '202-03 국외업무여비', '202-04 국제화여비', '202-05 공무원 교육여비']],
+    ['203 업무추진비', ['203-01 기관운영업무추진비', '203-02 정원가산업무추진비', '203-03 시책추진업무추진비', '203-04 부서운영업무추진비']],
+    ['204 직무수행경비', ['204-01 직책급업무수행경비', '204-02 특정업무경비']],
+    ['205 의회비', ['205-01 의정활동비', '205-02 월정수당', '205-03 의원국내여비', '205-04 의원국외여비', '205-05 의정운영공통경비', '205-06 의회운영업무추진비', '205-07 의원역량개발비(공공위탁, 자체교육)', '205-08 의원역량개발비(민간위탁)', '205-09 의원정책개발비', '205-10 의장협의체 부담금', '205-11 의원국민연금부담금', '205-12 의원국민건강부담금']],
+    ['206 재료비', ['206-01 재료비']],
+    ['207 연구개발비', ['207-01 연구용역비', '207-02 전산개발비', '207-03 시험연구비']],
+    ['301 일반보전금', ['301-01 사회보장적수혜금(국고보조재원)', '301-02 사회보장적수혜금(취약계층, 지방재원)', '301-03 사회보장적수혜금(지방재원)', '301-04 장학금 및 학자금', '301-05 의용소방대지원경비', '301-06 자율방범대 실비지원', '301-07 통장·이장·반장활동보상금', '301-08 민간인 국외여비', '301-09 외빈초청여비', '301-10 사회복무요원 보상금', '301-11 행사실비 지원금', '301-12 예술단원·운동부 등 보상금', '301-13 사회성과보상금', '301-14 기타 보상금']],
+    ['302 이주 및 재해 보상금', ['302-01 민간인 이주보상금', '302-02 민간인 재해 및 복구활동 보상금']],
+    ['303 포상금', ['303-01 포상금']],
+    ['304 연금부담금등', ['304-01 연금부담금', '304-02 국민건강보험금', '304-03 의원상해부담금', '304-04 공무직(무기계약)근로자 보험료부담금 등']],
+    ['305 배상금등', ['305-01 배상금등']],
+    ['306 출연금', ['306-01 출연금']],
+    ['307 민간이전', ['307-01 의료 및 회복비', '307-02 민간경상사업보조', '307-03 민간단체 법정운영비보조', '307-04 민간행사사업보조', '307-05 민간위탁금', '307-06 보험금', '307-07 연금지급금', '307-08 이차보전금', '307-09 운수업계보조금', '307-10 사회복지시설 법정운영비 보조', '307-11 사회복지사업보조', '307-12 민간인위탁교육비']],
+    ['308 자치단체등 이전', ['308-01 자치단체 경상보조금', '308-02 징수교부금', '308-03 자치구 조정교부금', '308-04 시·군 조정교부금', '308-05 자치구 기타 재원조정비', '308-06 시·군 기타 재원조정비', '308-07 자치단체 간 부담금', '308-08 교육기관에 대한 보조', '308-09 지역대학에 대한 경상보조', '308-10 시·군·구 교육비특별회계 법정전출금', '308-11 시·군·구 교육비특별회계 비법정전출금', '308-12 예비군육성지원 경상보조', '308-13 공기관 등에 대한 경상적 위탁사업비', '308-14 기타부담금']],
+    ['309 전출금', ['309-01 공사·공단 경상전출금', '309-02 공무원연금관리공단 경상전출금']],
+    ['310 국외이전', ['310-01 국외경상이전', '310-02 국제부담금']],
+    ['311 차입금이자상환', ['311-01 시·군·구 지역개발기금 차입금이자 상환', '311-02 통화금융기관 차입금이자상환', '311-03 중앙정부 차입금이자상환', '311-04 지방채증권 이자상환', '311-05 기타차입금 이자상환']],
+    ['401 시설비 및 부대비', ['401-01 시설비', '401-02 감리비', '401-03 시설부대비', '401-04 행사관련시설비']],
+    ['402 민간자본이전', ['402-01 민간자본사업보조(자체재원)', '402-02 민간자본사업보조(이전재원)', '402-03 민간위탁사업비']],
+    ['403 자치단체등 자본이전', ['403-01 자치단체자본보조', '403-02 공기관 등에 대한 자본적 위탁사업비', '403-03 예비군육성지원자본보조', '403-04 지역대학에 대한 자본보조']],
+    ['404 공사공단 자본전출금', ['404-01 공사·공단자본전출금']],
+    ['405 자산취득비', ['405-01 자산 및 물품취득비', '405-02 도서구입비']],
+    ['406 기타자본이전', ['406-01 기타자본이전']],
+    ['407 국외자본이전', ['407-01 국외자본이전']],
+    ['501 융자금', ['501-01 민간융자금', '501-02 통화금융기관 융자금', '501-03 공사·공단 등 융자금', '501-04 시·군·구 융자금']],
+    ['502 출자금', ['502-01 출자금']]
+  ];
+  function itemValue(s) { return s.slice(0, 6) + '-' + s.slice(7); }
+  function fillItems() {
+    $('fItem').innerHTML = '<option value="">선택 안 함</option>' + ITEM_GROUPS.map(function (g) {
+      return '<optgroup label="' + esc(g[0]) + '">' + g[1].map(function (s) { return '<option value="' + esc(itemValue(s)) + '">' + esc(s) + '</option>'; }).join('') + '</optgroup>';
+    }).join('');
+  }
+  /** 목록에 없는 통계목(예전에 적어 둔 값)은 맨 위에 덧붙여서 그대로 보이게 한다. */
+  function setItem(v) {
+    var sel = $('fItem');
+    if (v && ![].some.call(sel.options, function (o) { return o.value === v; })) {
+      var o = document.createElement('option'); o.value = v; o.textContent = v;
+      sel.insertBefore(o, sel.options[1]);
+    }
+    sel.value = v;
+  }
+
   function fillEntrySubs() {
     var keep = $('fSub').value;
     setOptions($('fSub'), subsOf($('fUnit').value).concat(['__new']), null, function (s) { return s === '__new' ? '+ 새 세부사업 직접 입력' : s; });
@@ -580,8 +633,8 @@
       var manual = r.src !== '이호조';
       return '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.time || '') + '</td><td>' + esc(r.team) + '</td><td>' + esc(r.sub) + '<span class="sub">' + esc(r.unit) + '</span></td><td>' + esc(r.person) + '</td><td>' + esc(r.vendor) +
         '</td><td>' + esc(r.item || '') + '</td><td class="n">' + won(r.amount) +
-        '</td><td class="n' + (r.hasBudget && r.left < 0 ? ' neg' : '') + '">' + (r.hasBudget ? won(r.left) : '<span class="muted">예산 없음</span>') + '</td><td><span class="tag' + (manual ? ' m' : '') + '">' + esc(r.src) + '</span></td><td>' +
-        (manual ? '<button class="x" data-edit="' + esc(r.id) + '">수정</button><button class="x del" data-del="' + esc(r.id) + '">삭제</button>' : '') + '</td></tr>';
+        '</td><td class="n' + (r.hasBudget && r.left < 0 ? ' neg' : '') + '">' + (r.hasBudget ? won(r.left) : '<span class="muted">예산 없음</span>') + '</td><td><span class="tag' + (manual ? ' m' : '') + '">' + esc(r.src) + '</span></td><td class="acts">' +
+        (manual ? '<div class="row"><button class="act" data-edit="' + esc(r.id) + '">수정</button><button class="act del" data-del="' + esc(r.id) + '">삭제</button></div>' : '<span class="muted">엑셀로 갱신</span>') + '</td></tr>';
     }).join('') || '<tr><td colspan="11" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
     $('listFoot').innerHTML = rs.length ? '<tr><td colspan="7">합계 ' + rs.length + '건' + (rs.length > 500 ? ' (최근 500건 표시)' : '') + '</td><td class="n">' + won(sum(rs)) + '</td><td colspan="3"></td></tr>' : '';
     $('listSum').textContent = state.year + '년 · ' + rs.length + '건 · 집행 ' + won(sum(rs));
@@ -861,7 +914,7 @@
 
   $('entryForm').onsubmit = function (e) {
     e.preventDefault();
-    var x = { unit: $('fUnit').value, sub: $('fSub').value === '__new' ? $('fSubNew').value.trim() : $('fSub').value, item: $('fItem').value.trim(),
+    var x = { unit: $('fUnit').value, sub: $('fSub').value === '__new' ? $('fSubNew').value.trim() : $('fSub').value, item: $('fItem').value,
       person: $('fPerson').value.trim(), date: $('fDate').value, time: $('fTime').value, vendor: $('fVendor').value.trim(), amount: num($('fAmount').value) };
     var msg = $('entryMsg'); msg.className = 'msg'; msg.textContent = '저장하는 중…';
     $('saveBtn').disabled = true;
@@ -884,7 +937,7 @@
       editingId = r.id;
       $('fUnit').value = r.unit; fillEntrySubs(); $('fSub').value = r.sub; $('fSubNew').hidden = true;
       $('fPerson').value = r.person; $('fDate').value = r.date; $('fTime').value = r.time || '';
-      $('fVendor').value = r.vendor; $('fAmount').value = r.amount.toLocaleString('ko-KR'); $('fItem').value = r.item || '';
+      $('fVendor').value = r.vendor; $('fAmount').value = r.amount.toLocaleString('ko-KR'); setItem(r.item || '');
       $('entryTitle').textContent = '직접 입력 내역 수정'; $('saveBtn').textContent = '수정 저장'; $('cancelEdit').hidden = false;
       $('entryMsg').textContent = '';
       updateAfterLeft(); showTab('entry');
@@ -961,6 +1014,7 @@
     }).catch(function (err) { $('loginMsg').className = 'msg err'; $('loginMsg').textContent = err.message; });
   };
 
+  fillItems();
   key = store(KEY_STORE) || '';
   if (!LIVE) key = 'preview';
   if (key) enter(); else showLogin();
